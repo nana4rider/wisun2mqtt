@@ -4,12 +4,22 @@ import { SerialPort } from "serialport";
 import { Emitter } from "strict-event-emitter";
 
 const BAUDRATE = 115200;
-const SCAN_DURATION = 7;
+const SCAN_DURATION = 6;
+const SCAN_TIMEOUT = 30000;
+const CRLF = "\r\n";
+
+const ErrorMessages = new Map<string, string>([
+  ["ER04", "指定されたコマンドがサポートされていない"],
+  ["ER05", "指定されたコマンドの引数の数が正しくない"],
+  ["ER06", "指定されたコマンドの引数形式や値域が正しくない"],
+  ["ER09", "UART 入力エラーが発生した"],
+  ["ER10", "指定されたコマンドは受付けたが、実行結果が失敗した"],
+]);
 
 export type PanDescription = {
-  panId: string;
   channel: string;
   channelPage: string;
+  panId: string;
   addr: string;
   lqi: string;
   pairId: string;
@@ -25,7 +35,10 @@ export class WiSunConnector extends Emitter<Events> {
   private parser: ReadlineParser;
   private ipv6Address: string | undefined;
 
-  constructor(path: string) {
+  constructor(
+    path: string,
+    private timeout: number,
+  ) {
     super();
     this.serialPort = new SerialPort({
       path,
@@ -36,12 +49,12 @@ export class WiSunConnector extends Emitter<Events> {
     );
 
     this.parser.on("data", (data: string) => {
+      logger.debug(`Response from SerialPort: ${data}`);
       if (!data.startsWith("ERXUDP")) return;
-      logger.info(`Response from smart meter: ${data}`);
       const arrayData = data.split(" ");
       const message = arrayData[arrayData.length - 1];
       if (message.startsWith("1081")) {
-        logger.warn("Invaild message");
+        logger.warn(`Invaild message: ${data}`);
         return;
       }
       this.emit("message", message);
@@ -52,29 +65,25 @@ export class WiSunConnector extends Emitter<Events> {
     });
   }
 
-  public async sendEchonetData(data: string): Promise<string> {
-    if (!this.ipv6Address) {
-      throw new Error("not connected.");
-    }
-    const [_echo, _event21, _ok, erxudp] = await this.sendCommand(
-      `SKSENDTO 1 ${this.ipv6Address} 0E1A 1 ${data}`,
-      (data) => data.startsWith("ERXUDP"),
-    );
-    return erxudp;
-  }
-
   private sendCommand(
     command: string,
-    end: (data: string) => boolean = (data) => data === "OK",
-    timeout: number = 5000,
+    expectedPrefix = "OK",
+    timeout: number = this.timeout,
   ): Promise<string[]> {
+    logger.debug(`sendCommand: ${command.replace(/\r\n/, "<CRLF>")}`);
     return new Promise((resolve, reject) => {
       const responses: string[] = [];
-      let timeoutId: NodeJS.Timeout;
+      let timeoutId: NodeJS.Timeout | undefined = undefined;
 
       const onData = (data: string) => {
         responses.push(data);
-        if (end(data)) {
+        if (data.startsWith("FAIL")) {
+          clearTimeout(timeoutId);
+          this.parser.removeListener("data", onData);
+          const errorCode = data.substring(5);
+          const errorMessage = ErrorMessages.get(errorCode) ?? "Unknown";
+          reject(new Error(`[${errorCode}] ${errorMessage}`));
+        } else if (data.startsWith(expectedPrefix)) {
           clearTimeout(timeoutId);
           this.parser.removeListener("data", onData);
           resolve(responses);
@@ -84,7 +93,6 @@ export class WiSunConnector extends Emitter<Events> {
       // シリアルポートにコマンドを送信
       this.serialPort.write(`${command}\r\n`, (err) => {
         if (err) {
-          clearTimeout(timeoutId);
           return reject(err);
         }
 
@@ -102,15 +110,32 @@ export class WiSunConnector extends Emitter<Events> {
     });
   }
 
-  public async getVersion(): Promise<string> {
-    const [_echo, ever] = await this.sendCommand("SKVER");
-    const [version] = ever.split(" ");
-    return version;
+  public async sendEchonetData(data: string): Promise<string> {
+    if (!this.ipv6Address) {
+      throw new Error("not connected.");
+    }
+
+    const bufferData = Buffer.from(data, "hex");
+    const hexDataLength = bufferData.length
+      .toString(16)
+      .toUpperCase()
+      .padStart(4, "0");
+    const hexData = bufferData.toString("hex");
+
+    const [, _event21, _ok, erxudp] = await this.sendCommand(
+      `SKSENDTO 1 ${this.ipv6Address} 0E1A 1 ${hexDataLength} ${hexData}`,
+      "ERXUDP",
+    );
+    return erxudp;
+  }
+
+  public async reset(): Promise<void> {
+    await this.sendCommand(`SKRESET${CRLF}`);
   }
 
   public async setAuth(id: string, password: string): Promise<void> {
-    await this.sendCommand(`SKSETPWD C ${password}`);
-    await this.sendCommand(`SKSETRBID ${id}`);
+    await this.sendCommand(`SKSETPWD C ${password}${CRLF}`);
+    await this.sendCommand(`SKSETRBID ${id}${CRLF}`);
   }
 
   public async connect({
@@ -118,24 +143,29 @@ export class WiSunConnector extends Emitter<Events> {
     panId,
     addr,
   }: PanDescription): Promise<void> {
-    await this.sendCommand(`SKSREG S2 ${channel}`);
-    await this.sendCommand(`SKSREG S3 ${panId}`);
-    const [_echo, ipv6Address] = await this.sendCommand(`SKLL64 ${addr}`);
+    await this.sendCommand(`SKSREG S2 ${channel}${CRLF}`);
+    await this.sendCommand(`SKSREG S3 ${panId}${CRLF}`);
+    const [, ipv6Address] = await this.sendCommand(`SKLL64 ${addr}${CRLF}`);
+    const [, _ok, event] = await this.sendCommand(
+      `SKJOIN ${ipv6Address}${CRLF}`,
+      "EVENT",
+    );
+    if (!event.startsWith("EVENT 25")) {
+      throw new Error(`connect failed: ${event}`);
+    }
     this.ipv6Address = ipv6Address;
   }
 
   public async executeScan(): Promise<PanDescription | undefined> {
     const responses = await this.sendCommand(
-      `SKSCAN 2 FFFFFFFF ${SCAN_DURATION}`,
-      (data) => data.startsWith("EVENT 22"),
-      20,
+      `SKSCAN 2 FFFFFFFF ${SCAN_DURATION} 0${CRLF}`,
+      "EVENT 22",
+      SCAN_TIMEOUT,
     );
-
-    if (responses.length <= 3) return undefined;
 
     const scanRecord: Record<string, string> = {};
     responses
-      .filter((res) => !res.startsWith("  "))
+      .filter((res) => res.startsWith("  "))
       .forEach((res) => {
         const separatorIndex = res.indexOf(":");
         if (separatorIndex !== -1) return;
@@ -143,11 +173,14 @@ export class WiSunConnector extends Emitter<Events> {
         const value = res.substring(separatorIndex + 1);
         scanRecord[key] = value;
       });
+    if (Object.keys(scanRecord).length === 0) {
+      return undefined;
+    }
 
     const description: PanDescription = {
-      panId: scanRecord["Pan ID"],
       channel: scanRecord["Channel"],
       channelPage: scanRecord["Channel Page"],
+      panId: scanRecord["Pan ID"],
       addr: scanRecord["Addr"],
       lqi: scanRecord["LQI"],
       pairId: scanRecord["PairID"],
