@@ -6,10 +6,19 @@
       "request": "launch",
       "runtimeExecutable": "${env:NVM_BIN}${env:NVM_SYMLINK}/npm",
       "args": ["run", "dev"],
-      "name": "npm run dev",
+      "name": "Local Debug",
       "cwd": "${workspaceFolder}",
       "skipFiles": ["<node_internals>/**"],
       "console": "integratedTerminal"
+    },
+    {
+      "type": "node",
+      "request": "attach",
+      "name": "Remote Debug",
+      "address": "192.168.1.30",
+      "port": 9229,
+      "remoteRoot": "/app",
+      "localRoot": "${workspaceFolder}"
     }
   ]
 }
