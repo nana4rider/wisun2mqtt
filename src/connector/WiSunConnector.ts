@@ -78,7 +78,7 @@ export class WiSunConnector extends Emitter<Events> {
    * @param timeout コマンドのタイムアウト時間（ミリ秒）
    * @returns コマンドの応答を配列で返します。
    */
-  public sendCommand(
+  sendCommand(
     command: string,
     expectedPrefix = "OK",
     timeout: number = this.timeout,
@@ -132,7 +132,7 @@ export class WiSunConnector extends Emitter<Events> {
    * @returns デバイスからの応答
    * @throws 接続されていない場合やエラーが発生した場合
    */
-  public async sendEchonetData(data: string): Promise<string> {
+  async sendEchonet(data: string): Promise<string> {
     if (!this.ipv6Address) {
       throw new Error("Not connected to the device.");
     }
@@ -159,7 +159,7 @@ export class WiSunConnector extends Emitter<Events> {
    * @returns リセットが完了したときに解決されるPromise
    * @throws リセットコマンドが失敗した場合
    */
-  public async reset(): Promise<void> {
+  async reset(): Promise<void> {
     logger.info("Resetting Wi-SUN module...");
     await this.sendCommand("SKRESET");
   }
@@ -172,7 +172,7 @@ export class WiSunConnector extends Emitter<Events> {
    * @returns 認証情報が正常に設定されたときに解決されるPromise
    * @throws 設定が失敗した場合
    */
-  public async setAuth(id: string, password: string): Promise<void> {
+  async setAuth(id: string, password: string): Promise<void> {
     logger.info("Setting authentication credentials...");
     await this.sendCommand(`SKSETPWD C ${password}`);
     await this.sendCommand(`SKSETRBID ${id}`);
@@ -185,7 +185,7 @@ export class WiSunConnector extends Emitter<Events> {
    * @returns 接続が確立されたときに解決されるPromise
    * @throws 接続に失敗した場合や予期しないイベントが発生した場合
    */
-  public async join(panInfo: PanInfo): Promise<void> {
+  async join(panInfo: PanInfo): Promise<void> {
     logger.info("Configuring Wi-SUN connection...");
     await this.sendCommand(`SKSREG S2 ${panInfo["Channel"]}`);
     await this.sendCommand(`SKSREG S3 ${panInfo["Pan ID"]}`);
@@ -206,7 +206,7 @@ export class WiSunConnector extends Emitter<Events> {
    * @returns ネットワークが見つかった場合はその PAN 情報、見つからなかった場合はundefined
    * @throws スキャンが失敗した場合
    */
-  public async scan(): Promise<PanInfo | undefined> {
+  async scan(): Promise<PanInfo | undefined> {
     logger.info("Starting PAN scan...");
     const [, , ...responses] = await this.sendCommand(
       `SKSCAN 2 FFFFFFFF ${SCAN_DURATION} 0`,
@@ -257,7 +257,7 @@ export class WiSunConnector extends Emitter<Events> {
    * @returns ネットワークに正常に接続されたときに解決されるPromise
    * @throws 最大リトライ回数を超えた場合
    */
-  public async scanAndJoin(
+  async scanAndJoin(
     maxRetries: number,
     retryInterval: number = 1000,
   ): Promise<void> {
@@ -285,7 +285,7 @@ export class WiSunConnector extends Emitter<Events> {
    * @returns シリアルポートが正常に閉じられたときに解決されるPromise
    * @throws シリアルポートのクローズに失敗した場合
    */
-  public close(): Promise<void> {
+  close(): Promise<void> {
     logger.info("Closing serial port...");
     return new Promise<void>((resolve, reject) => {
       this.serialPort.close((err) => {

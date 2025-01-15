@@ -2,19 +2,16 @@ export type Entity = {
   id: string;
   name: string;
   domain: Domain;
-  deviceClass?: DeviceClass;
+  deviceClass: DeviceClass;
   stateClass?: StateClass;
   unit?: Unit;
-  unitType?: UnitType;
+  unitType?: string;
   unitPrecision?: number;
+  epc: string;
+  converter: (value: string) => string;
 };
 
-export type Domain = "sensor" | "binary_sensor";
-
-export type DeviceClass = "energy";
-
-export type StateClass = "total_increasing";
-
-export type Unit = "kWh";
-
-export type UnitType = "float";
+type Domain = "sensor" | "binary_sensor";
+type DeviceClass = "running" | "problem" | "power" | "current" | "energy";
+type StateClass = "measurement" | "total_increasing";
+type Unit = "W" | "A" | "kWh";
