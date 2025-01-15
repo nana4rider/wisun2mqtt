@@ -23,7 +23,7 @@ export type PanInfo = {
 };
 
 type Events = {
-  message: [message: string]; // スマートメーターからのメッセージ
+  message: [message: Buffer]; // スマートメーターからのメッセージ
   error: [err: Error]; // エラーイベント
 };
 
@@ -51,16 +51,16 @@ export class WiSunConnector extends Emitter<Events> {
       logger.debug(`SerialPort response: ${data}`);
       if (!data.startsWith("ERXUDP")) return;
 
-      const arrayData = data.split(" ");
-      const message = arrayData[arrayData.length - 1];
+      const arrayErxudp = data.split(" ");
+      const responseHexString = arrayErxudp[arrayErxudp.length - 1];
 
       // ECHONET Liteメッセージを検証
-      if (!message.startsWith("1081")) {
+      if (!responseHexString.startsWith("1081")) {
         logger.warn(`Invalid ECHONET Lite message: ${data}`);
         return;
       }
 
-      this.emit("message", message); // 有効なメッセージをイベントとして発火
+      this.emit("message", Buffer.from(responseHexString, "hex"));
     });
 
     // シリアルポートのエラーハンドリング
@@ -106,7 +106,7 @@ export class WiSunConnector extends Emitter<Events> {
       };
 
       // コマンドを送信
-      this.serialPort.write(`${command}${CRLF}`, (err) => {
+      this.serialPort.write(command, (err) => {
         if (err) {
           return reject(err);
         }
@@ -128,29 +128,29 @@ export class WiSunConnector extends Emitter<Events> {
   /**
    * ECHONET Liteデータを送信します。
    *
-   * @param data 送信するECHONET Liteデータ（16進文字列形式）
-   * @returns デバイスからの応答
+   * @param data 送信するECHONET Liteデータ
+   * @returns 受信したECHONET Liteデータ
    * @throws 接続されていない場合やエラーが発生した場合
    */
-  async sendEchonet(data: string): Promise<string> {
+  async sendEchonetLite(data: Buffer): Promise<Buffer> {
     if (!this.ipv6Address) {
       throw new Error("Not connected to the device.");
     }
 
-    const bufferData = Buffer.from(data, "hex");
-    const hexDataLength = bufferData.length
+    const hexDataLength = data.length
       .toString(16)
       .toUpperCase()
       .padStart(4, "0");
-    const hexData = bufferData.toString("hex");
+    const requestHexString = data.toString("hex");
 
     const [, , , erxudp] = await this.sendCommand(
-      `SKSENDTO 1 ${this.ipv6Address} ${HEX_PORT} 1 ${hexDataLength} ${hexData}`,
+      `SKSENDTO 1 ${this.ipv6Address} ${HEX_PORT} 1 ${hexDataLength} ${requestHexString}`,
       "ERXUDP",
     );
     const arrayErxudp = erxudp.split(" ");
+    const responseHexString = arrayErxudp[arrayErxudp.length - 1];
 
-    return arrayErxudp[arrayErxudp.length - 1];
+    return Buffer.from(responseHexString, "hex");
   }
 
   /**
@@ -161,7 +161,7 @@ export class WiSunConnector extends Emitter<Events> {
    */
   async reset(): Promise<void> {
     logger.info("Resetting Wi-SUN module...");
-    await this.sendCommand("SKRESET");
+    await this.sendCommand(`SKRESET${CRLF}`);
   }
 
   /**
@@ -174,8 +174,8 @@ export class WiSunConnector extends Emitter<Events> {
    */
   async setAuth(id: string, password: string): Promise<void> {
     logger.info("Setting authentication credentials...");
-    await this.sendCommand(`SKSETPWD C ${password}`);
-    await this.sendCommand(`SKSETRBID ${id}`);
+    await this.sendCommand(`SKSETPWD C ${password}${CRLF}`);
+    await this.sendCommand(`SKSETRBID ${id}${CRLF}`);
   }
 
   /**
@@ -187,11 +187,13 @@ export class WiSunConnector extends Emitter<Events> {
    */
   async join(panInfo: PanInfo): Promise<void> {
     logger.info("Configuring Wi-SUN connection...");
-    await this.sendCommand(`SKSREG S2 ${panInfo["Channel"]}`);
-    await this.sendCommand(`SKSREG S3 ${panInfo["Pan ID"]}`);
-    const [, ipv6Address] = await this.sendCommand(`SKLL64 ${panInfo["Addr"]}`);
+    await this.sendCommand(`SKSREG S2 ${panInfo["Channel"]}${CRLF}`);
+    await this.sendCommand(`SKSREG S3 ${panInfo["Pan ID"]}${CRLF}`);
+    const [, ipv6Address] = await this.sendCommand(
+      `SKLL64 ${panInfo["Addr"]}${CRLF}`,
+    );
     const [, , event] = await this.sendCommand(
-      `SKJOIN ${ipv6Address}`,
+      `SKJOIN ${ipv6Address}${CRLF}`,
       "EVENT",
     );
     if (!event.startsWith("EVENT 25")) {
@@ -209,27 +211,10 @@ export class WiSunConnector extends Emitter<Events> {
   async scan(): Promise<PanInfo | undefined> {
     logger.info("Starting PAN scan...");
     const [, , ...responses] = await this.sendCommand(
-      `SKSCAN 2 FFFFFFFF ${SCAN_DURATION} 0`,
+      `SKSCAN 2 FFFFFFFF ${SCAN_DURATION} 0${CRLF}`,
       "EVENT 22",
       SCAN_TIMEOUT,
     );
-
-    const infoMap = new Map<string, string>();
-    responses
-      .filter((res) => res.startsWith("  "))
-      .forEach((res) => {
-        const separatorIndex = res.indexOf(":");
-        if (separatorIndex !== -1) {
-          const key = res.substring(2, separatorIndex);
-          const value = res.substring(separatorIndex + 1);
-          infoMap.set(key, value);
-        }
-      });
-
-    if (infoMap.size === 0) {
-      logger.warn("No PAN descriptions found during scan");
-      return undefined;
-    }
 
     const panInfo: PanInfo = {};
     responses.forEach((res) => {

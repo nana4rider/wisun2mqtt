@@ -15,7 +15,6 @@ export function buildEntity(
     name: entity.name,
     state_topic: getTopic(deviceId, entity, TopicType.STATE),
     availability_topic: getTopic(deviceId, entity, TopicType.AVAILABILITY),
-    optimistic: true,
     qos: env.ENTITY_QOS,
   };
 
@@ -29,14 +28,14 @@ export function buildEntity(
   if (entity.unit) {
     optionMessage.unit_of_measurement = entity.unit;
   }
-  if (entity.unitType) {
-    optionMessage.native_value = entity.unitType;
+  if (entity.nativeValue) {
+    optionMessage.native_value = entity.nativeValue;
   }
   if (entity.unitPrecision) {
     optionMessage.suggested_display_precision = entity.unitPrecision;
   }
 
-  return { ...baseMessage, optionMessage } as const;
+  return { ...baseMessage, ...optionMessage } as const;
 }
 
 export function buildDevice(deviceId: string): Readonly<Payload> {

@@ -7,14 +7,15 @@ import {
   convertUnitForCumulativeElectricEnergy,
   createEchonetMessage,
   EchonetData,
+  getEdt,
   parseEchonetMessage,
 } from "@/util/echonetUtil";
-import { setTimeout } from "timers/promises";
 
 export type SmartMeterClient = {
   deviceId: string;
   entities: Entity[];
   addListener: (listen: (entityId: string, value: string) => void) => void;
+  request: () => Promise<void>;
   close: () => Promise<void>;
 };
 
@@ -26,44 +27,40 @@ export default async function initializeSmartMeterClient(): Promise<SmartMeterCl
   await wiSunConnector.reset();
   await wiSunConnector.setAuth(env.ROUTE_B_ID, env.ROUTE_B_PASSWORD);
   await wiSunConnector.scanAndJoin(env.WISUN_SCAN_RETRIES);
+
   wiSunConnector.on("error", (err) =>
     logger.error("Wi-SUN Connector Error:", err),
   );
 
-  const baseRequestData = {
-    seoj: "028801", // スマートメーター
-    deoj: "05FF01", // コントローラー
-    esv: "62", // GET命令
-    tid: "0001",
-  };
-
-  const getEchonet = async <T extends string>(properties: {
-    [epc in T]: string;
-  }): Promise<EchonetData<T>> => {
-    const requestMessage = createEchonetMessage<T>({
-      ...baseRequestData,
-      properties,
+  const getEchonet = async (epcs: number[]): Promise<EchonetData> => {
+    const requestMessage = createEchonetMessage({
+      seoj: 0x028801, // スマートメーター
+      deoj: 0x05ff01, // コントローラー
+      esv: 0x62, // GET命令
+      tid: 0x0001, // 任意
+      properties: epcs.map((epc) => ({ epc, pdc: 1, edt: 0 })),
     });
 
-    const responseData = await wiSunConnector.sendEchonet(requestMessage);
+    const responseData = await wiSunConnector.sendEchonetLite(requestMessage);
+
     return parseEchonetMessage(responseData);
   };
 
-  // エンティティの必要なプロパティを要求
-  const initialData = await getEchonet({
-    "0x8A": "", // メーカーコード
-    "0x8D": "", // 製造番号
-    "0xE1": "", // 積算電力量単位 (正方向、逆方向計測値)
-    "0xD3": "", // 係数
-  });
+  // エンティティの構成に必要なプロパティを要求
+  const initialData = await getEchonet([
+    0x8a, // メーカーコード
+    0x8d, // 製造番号
+    0xe1, // 積算電力量単位 (正方向、逆方向計測値)
+    0xd3, // 係数
+  ]);
   const cumulativeMultiplier = convertUnitForCumulativeElectricEnergy(
-    initialData.properties["0xE1"],
+    getEdt(initialData, 0xe1),
   );
-  const cumulativeCoefficient = parseInt(initialData.properties["0xD3"], 16);
+  const cumulativeCoefficient = getEdt(initialData, 0xd3);
   const cumulativeUnitPrecision = getDecimalPlaces(cumulativeMultiplier);
 
-  const manufacturer = initialData.properties["0x8A"];
-  const serialNumber = initialData.properties["0x8D"];
+  const manufacturer = getEdt(initialData, 0x8a);
+  const serialNumber = getEdt(initialData, 0x8d);
   const deviceId = `${manufacturer}_${serialNumber}`;
   const entities: Entity[] = [];
 
@@ -73,16 +70,16 @@ export default async function initializeSmartMeterClient(): Promise<SmartMeterCl
     name: "動作状態",
     domain: "binary_sensor",
     deviceClass: "running",
-    epc: "0x80",
-    converter: (value) => String(value === "0x30"),
+    epc: 0x80,
+    converter: (value) => (value === 0x30 ? "ON" : "OFF"),
   });
   entities.push({
     id: "faultStatus",
     name: "異常発生状態",
     domain: "binary_sensor",
     deviceClass: "problem",
-    epc: "0x88",
-    converter: (value) => String(value === "0x41"),
+    epc: 0x88,
+    converter: (value) => (value === 0x41 ? "OFF" : "ON"),
   });
   entities.push({
     id: "instantaneousElectricPower",
@@ -91,9 +88,9 @@ export default async function initializeSmartMeterClient(): Promise<SmartMeterCl
     deviceClass: "power",
     stateClass: "measurement",
     unit: "W",
-    unitType: "measurement",
-    epc: "0xE7",
-    converter: (value) => String(parseInt(value, 16)),
+    nativeValue: "int",
+    epc: 0xe7,
+    converter: (value) => String(value),
   });
   entities.push({
     id: "instantaneousCurrent",
@@ -102,10 +99,10 @@ export default async function initializeSmartMeterClient(): Promise<SmartMeterCl
     deviceClass: "current",
     stateClass: "total_increasing",
     unit: "A",
-    unitType: "measurement",
+    nativeValue: "float",
     unitPrecision: 1,
-    epc: "0xE8",
-    converter: (value) => String(parseInt(value, 16) * 0.1),
+    epc: 0xe8,
+    converter: (value) => String(value * 0.1),
   });
   entities.push({
     id: "normalDirectionCumulativeElectricEnergy",
@@ -114,34 +111,31 @@ export default async function initializeSmartMeterClient(): Promise<SmartMeterCl
     deviceClass: "energy",
     stateClass: "total_increasing",
     unit: "kWh",
-    unitType: "total_increasing",
+    nativeValue: "float",
     unitPrecision: cumulativeUnitPrecision,
-    epc: "0xE0",
+    epc: 0xe0,
     converter: (value) =>
-      String(
-        parseInt(value, 16) * cumulativeMultiplier * cumulativeCoefficient,
-      ),
+      String(value * cumulativeMultiplier * cumulativeCoefficient),
   });
   entities.push({
     id: "reverseDirectionCumulativeElectricEnergy",
     name: "積算電力量計測値 (逆方向計測値)",
     domain: "sensor",
     deviceClass: "energy",
+    stateClass: "total_increasing",
     unit: "kWh",
-    unitType: "total_increasing",
+    nativeValue: "float",
     unitPrecision: cumulativeUnitPrecision,
-    epc: "0xE3",
+    epc: 0xe3,
     converter: (value) =>
-      String(
-        parseInt(value, 16) * cumulativeMultiplier * cumulativeCoefficient,
-      ),
+      String(value * cumulativeMultiplier * cumulativeCoefficient),
   });
 
   // エンティティの更新を通知するリスナー
   const addListener = (listener: (entityId: string, value: string) => void) => {
-    wiSunConnector.on("message", (message: string) => {
+    wiSunConnector.on("message", (message: Buffer) => {
       const { properties } = parseEchonetMessage(message);
-      Object.entries(properties).forEach(([epc, edt]) => {
+      properties.forEach(({ epc, edt }) => {
         const entity = entities.find((entity) => entity.epc === epc);
         if (!entity) {
           return;
@@ -151,30 +145,22 @@ export default async function initializeSmartMeterClient(): Promise<SmartMeterCl
     });
   };
 
-  // 定期的にリクエスト要求
-  void (async () => {
-    while (true) {
-      logger.info("Starting periodic ECHONET property fetch...");
-      try {
-        await getEchonet({
-          "0x80": "", // 動作状態
-          "0x88": "", // 異常発生状態
-          "0xE7": "", // 瞬時電力計測値
-          "0xE8": "", // 瞬時電流計測値
-          "0xE0": "", // 積算電力量計測値 (正方向計測値)
-          "0xE3": "", // 積算電力量計測値 (逆方向計測値)
-        });
-      } catch (err) {
-        logger.error("Failed to fetch ECHONET properties", err);
-      }
-      await setTimeout(env.ENTITY_UPDATE_INTERVAL);
-    }
-  });
+  const request = async () => {
+    await getEchonet([
+      0x80, // 動作状態
+      0x88, // 異常発生状態
+      0xe7, // 瞬時電力計測値
+      0xe8, // 瞬時電流計測値
+      0xe0, // 積算電力量計測値 (正方向計測値)
+      0xe3, // 積算電力量計測値 (逆方向計測値)
+    ]);
+  };
 
   return {
     deviceId,
     entities,
     addListener,
+    request,
     close: () => wiSunConnector.close(),
   };
 }

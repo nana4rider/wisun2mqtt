@@ -1,72 +1,84 @@
-export interface EchonetData<T extends string> {
-  tid: string; // トランザクションID
-  seoj: string; // 送信元オブジェクト
-  deoj: string; // 宛先オブジェクト
-  esv: string; // サービスコード
-  properties: { [epc in T]: string }; // プロパティリスト
+import { Buffer } from "buffer";
+
+export interface EchonetData {
+  tid: number; // トランザクションID
+  seoj: number; // 送信元オブジェクト
+  deoj: number; // 宛先オブジェクト
+  esv: number; // サービスコード
+  properties: EchonetProperty[]; // プロパティリスト
 }
 
-export function createEchonetMessage<T extends string>(
-  data: EchonetData<T>,
-): string {
-  const properties = Object.entries(data.properties) as [T, string][]; // 型キャストで明示
-  const opc = properties.length.toString(16).padStart(2, "0");
-  const propertyData = properties
-    .map(([epc, edt]) => {
-      const pdc = (edt.length / 2).toString(16).padStart(2, "0");
-      return epc + pdc + edt;
-    })
-    .join("");
-
-  return `1081${data.tid}${data.seoj}${data.deoj}${data.esv}${opc}${propertyData}`;
+export interface EchonetProperty {
+  edt: number; // データ
+  epc: number; // プロパティ
+  pdc: number; // データ長
 }
 
-export function parseEchonetMessage<T extends string>(
-  message: string,
-): EchonetData<T> {
-  if (message.length < 14) {
+export function createEchonetMessage(data: EchonetData): Buffer {
+  const tidBuffer = Buffer.alloc(2);
+  tidBuffer.writeUInt16BE(data.tid, 0);
+  const seojBuffer = Buffer.alloc(3);
+  seojBuffer.writeUIntBE(data.seoj, 0, 3);
+  const deojBuffer = Buffer.alloc(3);
+  deojBuffer.writeUIntBE(data.deoj, 0, 3);
+
+  const opc = Buffer.from([data.properties.length]);
+  const propertyData = Buffer.concat(
+    data.properties.map(({ epc, pdc, edt }) => {
+      const edtBuffer = Buffer.alloc(pdc);
+      edtBuffer.writeUIntBE(edt, 0, pdc); // Big-endianで書き込み
+      return Buffer.concat([Buffer.from([epc]), Buffer.from([pdc]), edtBuffer]);
+    }),
+  );
+
+  return Buffer.concat([
+    Buffer.from([0x10, 0x81]), // ECHONET Lite 固定ヘッダー
+    tidBuffer,
+    seojBuffer,
+    deojBuffer,
+    Buffer.from([data.esv]), // サービスコード
+    opc, // プロパティ数
+    propertyData, // プロパティデータ
+  ]);
+}
+
+export function parseEchonetMessage(message: Buffer): EchonetData {
+  if (message.length < 12) {
     throw new Error("Invalid frame: Frame is too short.");
   }
 
-  // 基本フィールドの抽出
-  const tid = message.substring(4, 8); // トランザクションID
-  const seoj = message.substring(8, 14); // 送信元オブジェクト
-  const deoj = message.substring(14, 20); // 宛先オブジェクト
-  const esv = message.substring(20, 22); // サービスコード
+  const tid = message.readUInt16BE(2); // トランザクションID
+  const seoj = message.readUIntBE(4, 3); // 送信元オブジェクト
+  const deoj = message.readUIntBE(7, 3); // 宛先オブジェクト
+  const esv = message.readUInt8(10); // サービスコード
+  const opc = message.readUInt8(11); // プロパティ数
 
-  // プロパティ数 (OPC)
-  const opc = parseInt(message.substring(22, 24), 16);
   if (opc === 0) {
     throw new Error("Invalid frame: No properties found.");
   }
 
-  // プロパティの解析
-  let offset = 24;
-  const properties = {} as { [epc in T]: string };
+  const properties: EchonetProperty[] = [];
+  let offset = 12;
 
   for (let i = 0; i < opc; i++) {
     if (message.length < offset + 2) {
-      throw new Error("Invalid frame: EPC is missing.");
+      throw new Error("Invalid frame: EPC or PDC is missing.");
     }
 
-    const epc = message.substring(offset, offset + 2) as T; // プロパティコード
-    offset += 2;
+    const epc = message.readUInt8(offset); // プロパティコード
+    offset += 1;
 
-    if (message.length < offset + 2) {
-      throw new Error("Invalid frame: PDC is missing.");
-    }
+    const pdc = message.readUInt8(offset); // データ長
+    offset += 1;
 
-    const pdc = parseInt(message.substring(offset, offset + 2), 16); // データ長
-    offset += 2;
-
-    if (message.length < offset + pdc * 2) {
+    if (message.length < offset + pdc) {
       throw new Error("Invalid frame: EDT is incomplete.");
     }
 
-    const edt = message.substring(offset, offset + pdc * 2); // プロパティデータ
-    offset += pdc * 2;
+    const edt = message.readUIntBE(offset, pdc); // プロパティデータ
+    offset += pdc;
 
-    properties[epc] = edt;
+    properties.push({ epc, pdc, edt });
   }
 
   return {
@@ -78,17 +90,17 @@ export function parseEchonetMessage<T extends string>(
   };
 }
 
-export function convertUnitForCumulativeElectricEnergy(value: string): number {
-  const valueMap: { [key: string]: number } = {
-    "0x00": 1,
-    "0x01": 0.1,
-    "0x02": 0.01,
-    "0x03": 0.001,
-    "0x04": 0.0001,
-    "0x0A": 10,
-    "0x0B": 100,
-    "0x0C": 1000,
-    "0x0D": 10000,
+export function convertUnitForCumulativeElectricEnergy(value: number): number {
+  const valueMap: { [key: number]: number } = {
+    0x00: 1,
+    0x01: 0.1,
+    0x02: 0.01,
+    0x03: 0.001,
+    0x04: 0.0001,
+    0x0a: 10,
+    0x0b: 100,
+    0x0c: 1000,
+    0x0d: 10000,
   };
 
   if (!(value in valueMap)) {
@@ -96,4 +108,12 @@ export function convertUnitForCumulativeElectricEnergy(value: string): number {
   }
 
   return valueMap[value];
+}
+
+export function getEdt(echonetData: EchonetData, epc: number): number {
+  const property = echonetData.properties.find(
+    (property) => property.epc === epc,
+  );
+  if (!property) throw new Error(`Property not found.: ${epc}`);
+  return property.edt;
 }

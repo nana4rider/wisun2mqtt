@@ -10,41 +10,17 @@ export type MqttClient = {
     message: string,
     options?: { retain?: boolean; qos?: 0 | 1 | 2 },
   ) => void;
-  addSubscribe: (topic: string) => void;
   close: (wait?: boolean) => Promise<void>;
 };
 
-export default async function initializeMqttClient(
-  subscribeTopics: string[],
-  handleMessage: (topic: string, message: string) => void | Promise<void>,
-) {
+export default async function initializeMqttClient() {
   const client = await mqttjs.connectAsync(env.MQTT_BROKER, {
     username: env.MQTT_USERNAME,
     password: env.MQTT_PASSWORD,
   });
   const taskQueue: (() => Promise<void>)[] = [];
 
-  client.on("message", (topic, payload) => {
-    logger.debug(`[MQTT] receive topic: ${topic}`);
-    try {
-      const result = handleMessage(topic, payload.toString());
-      if (result instanceof Promise) {
-        result.catch((err) => {
-          logger.error("[MQTT] message error:", err);
-        });
-      }
-    } catch (err) {
-      logger.error("[MQTT] message error:", err);
-    }
-  });
-
   logger.info("[MQTT] connected");
-
-  await client.subscribeAsync(subscribeTopics);
-
-  for (const topic of subscribeTopics) {
-    logger.debug(`[MQTT] subscribe topic: ${topic}`);
-  }
 
   let isMqttTaskRunning = true;
   const mqttTask = (async () => {
@@ -84,18 +60,11 @@ export default async function initializeMqttClient(
     });
   };
 
-  const addSubscribe = (topic: string): void => {
-    taskQueue.push(async () => {
-      await client.subscribeAsync(topic);
-    });
-  };
-
   return {
     get taskQueueSize() {
       return taskQueue.length;
     },
     publish,
-    addSubscribe,
     close,
   };
 }
