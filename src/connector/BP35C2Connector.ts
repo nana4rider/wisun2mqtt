@@ -209,7 +209,7 @@ export class BP35C2Connector extends Emitter<Events> implements WiSunConnector {
       panInfo[key] = value;
     });
     if (Object.values(panInfo).length === 0) {
-      throw new Error(`Invalid PAN information: ${JSON.stringify(panInfo)}`);
+      return undefined;
     }
 
     logger.info("PAN scan completed successfully");
