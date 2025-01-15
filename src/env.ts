@@ -27,16 +27,17 @@ const env = cleanEnv(process.env, {
     desc: "エンティティの更新間隔",
     default: 60000,
   }),
+  WISUN_CONNECTOR: str({
+    desc: "Wi-SUNコネクタ",
+    default: "BP35C2",
+    choices: ["BP35C2"],
+  }),
   WISUN_DEVICE: str({
     desc: "デバイス名",
     default: "/dev/ttyUSB0",
     example: "/dev/ttyUSB0 or COM3",
   }),
   WISUN_SCAN_RETRIES: num({ desc: "スキャンのリトライ回数", default: 3 }),
-  WISUN_COMMAND_TIMEOUT: num({
-    desc: "スキャンを除くコマンドのタイムアウト",
-    default: 5000,
-  }),
   ROUTE_B_ID: str({ desc: "Bルート認証ID" }),
   ROUTE_B_PASSWORD: str({ desc: "Bルートパスワード" }),
 });

@@ -1,4 +1,4 @@
-import { WiSunConnector } from "@/connector/WiSunConnector";
+import createWiSunConnector from "@/connector/WiSunConnector";
 import { Entity } from "@/entity";
 import env from "@/env";
 import logger from "@/logger";
@@ -20,19 +20,17 @@ export type SmartMeterClient = {
 };
 
 export default async function initializeSmartMeterClient(): Promise<SmartMeterClient> {
-  const wiSunConnector = new WiSunConnector(
+  const wiSunConnector = createWiSunConnector(
+    env.WISUN_CONNECTOR,
     env.WISUN_DEVICE,
-    env.WISUN_COMMAND_TIMEOUT,
   );
   await wiSunConnector.reset();
   await wiSunConnector.setAuth(env.ROUTE_B_ID, env.ROUTE_B_PASSWORD);
   await wiSunConnector.scanAndJoin(env.WISUN_SCAN_RETRIES);
 
-  wiSunConnector.on("error", (err) =>
-    logger.error("Wi-SUN Connector Error:", err),
-  );
+  wiSunConnector.on("error", (err) => logger.error("[SmartMeter] Error:", err));
 
-  const getEchonet = async (epcs: number[]): Promise<EchonetData> => {
+  const getEchonetLite = async (epcs: number[]): Promise<EchonetData> => {
     const requestMessage = createEchonetMessage({
       seoj: 0x028801, // スマートメーター
       deoj: 0x05ff01, // コントローラー
@@ -47,20 +45,25 @@ export default async function initializeSmartMeterClient(): Promise<SmartMeterCl
   };
 
   // エンティティの構成に必要なプロパティを要求
-  const initialData = await getEchonet([
+  const initialData = await getEchonetLite([
     0x8a, // メーカーコード
     0x8d, // 製造番号
     0xe1, // 積算電力量単位 (正方向、逆方向計測値)
     0xd3, // 係数
   ]);
+  // 積算電力量単位
   const cumulativeMultiplier = convertUnitForCumulativeElectricEnergy(
     getEdt(initialData, 0xe1),
   );
+  // 係数
   const cumulativeCoefficient = getEdt(initialData, 0xd3);
+  // 係数から精度を求める
   const cumulativeUnitPrecision = getDecimalPlaces(cumulativeMultiplier);
-
+  // メーカー
   const manufacturer = getEdt(initialData, 0x8a);
+  // 製造番号
   const serialNumber = getEdt(initialData, 0x8d);
+
   const deviceId = `${manufacturer}_${serialNumber}`;
   const entities: Entity[] = [];
 
@@ -146,7 +149,7 @@ export default async function initializeSmartMeterClient(): Promise<SmartMeterCl
   };
 
   const request = async () => {
-    await getEchonet([
+    await getEchonetLite([
       0x80, // 動作状態
       0x88, // 異常発生状態
       0xe7, // 瞬時電力計測値
