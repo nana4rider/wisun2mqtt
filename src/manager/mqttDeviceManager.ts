@@ -49,7 +49,7 @@ export default async function setupMqttDeviceManager(
             );
             return;
           }
-          const stateValue = entity.converter(property.edt);
+          const stateValue = entity.converter(echonetData.getEdt(property.epc));
           mqtt.publish(
             getTopic(deviceId, entity, TopicType.STATE),
             stateValue,
