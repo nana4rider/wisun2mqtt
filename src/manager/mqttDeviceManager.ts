@@ -59,7 +59,7 @@ export default async function setupMqttDeviceManager(
           );
         });
       } catch (err) {
-        logger.error("Failed to fetch ECHONET properties", err);
+        logger.warn("Failed to fetch ECHONET properties", err);
       }
       await setTimeout(env.ENTITY_UPDATE_INTERVAL);
     }

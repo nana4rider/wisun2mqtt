@@ -56,6 +56,7 @@ export default async function initializeSmartMeterClient(): Promise<SmartMeterCl
           return false;
         }
       },
+      timeout: env.ECHONET_GET_TIMEOUT,
     });
     assert(responseData !== undefined);
     return responseData;

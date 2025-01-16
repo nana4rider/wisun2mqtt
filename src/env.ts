@@ -27,6 +27,10 @@ const env = cleanEnv(process.env, {
     desc: "エンティティの更新間隔",
     default: 60000,
   }),
+  ECHONET_GET_TIMEOUT: num({
+    desc: "GET要求のタイムアウト",
+    default: 5000,
+  }),
   WISUN_CONNECTOR: str({
     desc: "Wi-SUNコネクタ",
     default: "BP35C2",
