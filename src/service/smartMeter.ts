@@ -2,17 +2,12 @@ import createWiSunConnector, {
   PanInfo,
   WiSunConnector,
 } from "@/connector/WiSunConnector";
+import { EchonetData } from "@/echonet/EchonetData";
+import { convertUnitForCumulativeElectricEnergy } from "@/echonet/echonetHelper";
 import { Entity } from "@/entity";
 import env from "@/env";
 import logger from "@/logger";
 import { getDecimalPlaces, parseJson } from "@/util/dataTransformUtil";
-import {
-  convertUnitForCumulativeElectricEnergy,
-  createEchonetMessage,
-  EchonetData,
-  getEdt,
-  parseEchonetMessage,
-} from "@/util/echonetUtil";
 import assert from "assert";
 import fileExists from "file-exists";
 import { readFile, rm, writeFile } from "fs/promises";
@@ -30,23 +25,34 @@ export default async function initializeSmartMeterClient(): Promise<SmartMeterCl
   const [wiSunConnector, panInfo] = await initializeWiSunConnector();
 
   const getEchonetLite = async (epcs: number[]): Promise<EchonetData> => {
-    const requestMessage = createEchonetMessage({
+    const requestData = EchonetData.create({
       seoj: 0x05ff01, // コントローラー
       deoj: 0x028801, // スマートメーター
       esv: 0x62, // GET命令
-      tid: 0x0001, // 任意
       properties: epcs.map((epc) => ({ epc, pdc: 1, edt: 0 })),
     });
 
-    await wiSunConnector.sendEchonetLite(requestMessage);
+    await wiSunConnector.sendEchonetLite(requestData.toBuffer());
     // GET要求の応答を待つ
     let responseData: EchonetData | undefined = undefined;
     await pEvent<"message", Buffer>(wiSunConnector, "message", {
       filter: (message) => {
-        const data = parseEchonetMessage(message);
-        responseData = data;
+        const data = EchonetData.parse(message);
         // GET要求に対しての返信である
-        return data.seoj === 0x028801 && data.esv === 0x72;
+        if (!requestData.isValidResponse(data)) return false;
+
+        if (data.esv === 0x72) {
+          // 正常終了
+          responseData = data;
+          logger.debug(`[SmartMeter] Receive message: ${data.toString()}`);
+          return true;
+        } else {
+          // エラー
+          logger.error(
+            `[SmartMeter] Receive message Error: ${data.toString()}`,
+          );
+          return false;
+        }
       },
     });
     assert(responseData !== undefined);
@@ -60,10 +66,10 @@ export default async function initializeSmartMeterClient(): Promise<SmartMeterCl
   ]);
   // 積算電力量単位
   const cumulativeMultiplier = convertUnitForCumulativeElectricEnergy(
-    getEdt(initialData, 0xe1),
+    initialData.getEdt(0xe1),
   );
   // 係数
-  const cumulativeCoefficient = getEdt(initialData, 0xd3);
+  const cumulativeCoefficient = initialData.getEdt(0xd3);
   // 係数から精度を求める
   const cumulativeUnitPrecision = getDecimalPlaces(cumulativeMultiplier);
 
@@ -143,8 +149,9 @@ export default async function initializeSmartMeterClient(): Promise<SmartMeterCl
   // エンティティの更新を通知するリスナー
   const addListener = (listener: (entityId: string, value: string) => void) => {
     wiSunConnector.on("message", (message: Buffer) => {
-      const { properties } = parseEchonetMessage(message);
-      properties.forEach(({ epc, edt }) => {
+      const echonetData = EchonetData.parse(message);
+      logger.debug(`Receive message: ${echonetData.toString()}`);
+      echonetData.properties.forEach(({ epc, edt }) => {
         const entity = entities.find((entity) => entity.epc === epc);
         if (!entity) {
           return;
