@@ -37,7 +37,11 @@ const env = cleanEnv(process.env, {
     default: "/dev/ttyUSB0",
     example: "/dev/ttyUSB0 or COM3",
   }),
-  WISUN_SCAN_RETRIES: num({ desc: "スキャンのリトライ回数", default: 3 }),
+  WISUN_SCAN_RETRIES: num({ desc: "スキャンのリトライ回数", default: 5 }),
+  PAN_INFO_PATH: str({
+    desc: "PAN情報をキャッシュするファイルパス",
+    default: ".paninfo.json",
+  }),
   ROUTE_B_ID: str({ desc: "Bルート認証ID" }),
   ROUTE_B_PASSWORD: str({ desc: "Bルートパスワード" }),
 });

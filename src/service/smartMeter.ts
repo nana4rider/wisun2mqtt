@@ -1,8 +1,11 @@
-import createWiSunConnector from "@/connector/WiSunConnector";
+import createWiSunConnector, {
+  PanInfo,
+  WiSunConnector,
+} from "@/connector/WiSunConnector";
 import { Entity } from "@/entity";
 import env from "@/env";
 import logger from "@/logger";
-import { getDecimalPlaces } from "@/util/dataTransformUtil";
+import { getDecimalPlaces, parseJson } from "@/util/dataTransformUtil";
 import {
   convertUnitForCumulativeElectricEnergy,
   createEchonetMessage,
@@ -10,6 +13,10 @@ import {
   getEdt,
   parseEchonetMessage,
 } from "@/util/echonetUtil";
+import assert from "assert";
+import fileExists from "file-exists";
+import { readFile, rm, writeFile } from "fs/promises";
+import { pEvent } from "p-event";
 
 export type SmartMeterClient = {
   deviceId: string;
@@ -20,34 +27,34 @@ export type SmartMeterClient = {
 };
 
 export default async function initializeSmartMeterClient(): Promise<SmartMeterClient> {
-  const wiSunConnector = createWiSunConnector(
-    env.WISUN_CONNECTOR,
-    env.WISUN_DEVICE,
-  );
-  await wiSunConnector.reset();
-  await wiSunConnector.setAuth(env.ROUTE_B_ID, env.ROUTE_B_PASSWORD);
-  await wiSunConnector.scanAndJoin(env.WISUN_SCAN_RETRIES);
-
-  wiSunConnector.on("error", (err) => logger.error("[SmartMeter] Error:", err));
+  const [wiSunConnector, panInfo] = await initializeWiSunConnector();
 
   const getEchonetLite = async (epcs: number[]): Promise<EchonetData> => {
     const requestMessage = createEchonetMessage({
-      seoj: 0x028801, // スマートメーター
-      deoj: 0x05ff01, // コントローラー
+      seoj: 0x05ff01, // コントローラー
+      deoj: 0x028801, // スマートメーター
       esv: 0x62, // GET命令
       tid: 0x0001, // 任意
       properties: epcs.map((epc) => ({ epc, pdc: 1, edt: 0 })),
     });
 
-    const responseData = await wiSunConnector.sendEchonetLite(requestMessage);
-
-    return parseEchonetMessage(responseData);
+    await wiSunConnector.sendEchonetLite(requestMessage);
+    // GET要求の応答を待つ
+    let responseData: EchonetData | undefined = undefined;
+    await pEvent<"message", Buffer>(wiSunConnector, "message", {
+      filter: (message) => {
+        const data = parseEchonetMessage(message);
+        responseData = data;
+        // GET要求に対しての返信である
+        return data.seoj === 0x028801 && data.esv === 0x72;
+      },
+    });
+    assert(responseData !== undefined);
+    return responseData;
   };
 
   // エンティティの構成に必要なプロパティを要求
   const initialData = await getEchonetLite([
-    0x8a, // メーカーコード
-    0x8d, // 製造番号
     0xe1, // 積算電力量単位 (正方向、逆方向計測値)
     0xd3, // 係数
   ]);
@@ -59,12 +66,11 @@ export default async function initializeSmartMeterClient(): Promise<SmartMeterCl
   const cumulativeCoefficient = getEdt(initialData, 0xd3);
   // 係数から精度を求める
   const cumulativeUnitPrecision = getDecimalPlaces(cumulativeMultiplier);
-  // メーカー
-  const manufacturer = getEdt(initialData, 0x8a);
-  // 製造番号
-  const serialNumber = getEdt(initialData, 0x8d);
 
-  const deviceId = `${manufacturer}_${serialNumber}`;
+  if (!panInfo["Addr"]) {
+    throw new Error("paninfo[Addr] is empty.");
+  }
+  const deviceId = panInfo["Addr"];
   const entities: Entity[] = [];
 
   // Home Assistantに登録するエンティティ
@@ -82,7 +88,7 @@ export default async function initializeSmartMeterClient(): Promise<SmartMeterCl
     domain: "binary_sensor",
     deviceClass: "problem",
     epc: 0x88,
-    converter: (value) => (value === 0x41 ? "OFF" : "ON"),
+    converter: (value) => (value === 0x42 ? "OFF" : "ON"),
   });
   entities.push({
     id: "instantaneousElectricPower",
@@ -166,4 +172,38 @@ export default async function initializeSmartMeterClient(): Promise<SmartMeterCl
     request,
     close: () => wiSunConnector.close(),
   };
+}
+
+async function initializeWiSunConnector(): Promise<[WiSunConnector, PanInfo]> {
+  const wiSunConnector = createWiSunConnector(
+    env.WISUN_CONNECTOR,
+    env.WISUN_DEVICE,
+  );
+  await wiSunConnector.setAuth(env.ROUTE_B_ID, env.ROUTE_B_PASSWORD);
+
+  let panInfo: PanInfo | undefined = undefined;
+  // Pan情報のキャッシュがあれば使う
+  if (await fileExists(env.PAN_INFO_PATH)) {
+    try {
+      const cachedPanInfoText = await readFile(env.PAN_INFO_PATH, "utf8");
+      if (cachedPanInfoText.length !== 0) {
+        const cachedPanInfo: PanInfo = parseJson(cachedPanInfoText);
+        await wiSunConnector.join(cachedPanInfo);
+        panInfo = cachedPanInfo;
+        logger.info("[SmartMeter] キャッシュされたPan情報で接続成功");
+      }
+    } catch (err) {
+      logger.warn("[SmartMeter] キャッシュされたPan情報で接続失敗", err);
+      await rm(env.PAN_INFO_PATH);
+    }
+  }
+  if (!panInfo) {
+    panInfo = await wiSunConnector.scan(env.WISUN_SCAN_RETRIES);
+    await wiSunConnector.join(panInfo);
+    await writeFile(env.PAN_INFO_PATH, JSON.stringify(panInfo));
+  }
+
+  wiSunConnector.on("error", (err) => logger.error("[SmartMeter] Error:", err));
+
+  return [wiSunConnector, panInfo];
 }
