@@ -17,3 +17,34 @@ ECHONET Liteプロトコルを使用して、Wi-SUN対応スマートメータ�
 ## サポートデバイス
 
 - [BP35C2](https://www.furutaka-netsel.co.jp/maker/rohm/bp35c2)
+
+## 使い方
+
+### Production
+
+```sh
+npm install
+npm run build
+node dist/index
+```
+
+### Development
+
+```sh
+npm install
+npm run dev
+```
+
+### Docker
+
+```sh
+docker run -d \
+  --name wisun2mqtt \
+  --device /dev/ttyUSB0:/dev/ttyUSB0 \
+  -v /dev/ttyUSB0:/dev/ttyUSB0 \
+  -v $(pwd)/.paninfo.json:/app/.paninfo.json \
+  -p 3000:3000 \
+  --env-file .env \
+  --restart always \
+  nana4rider/wisun2mqtt:latest
+```
