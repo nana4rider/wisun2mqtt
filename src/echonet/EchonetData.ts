@@ -20,10 +20,24 @@ export class EchonetData {
     seoj: number;
     deoj: number;
     esv: number;
-    properties: EchonetProperty[];
+    properties: {
+      epc: number;
+      pdc: number;
+      edt: number | bigint;
+    }[];
   }) {
     const randomTid = Math.floor(Math.random() * 0xffff); // 0x0000 〜 0xffff の範囲で生成
-    return new EchonetData(tid ?? randomTid, seoj, deoj, esv, properties);
+    return new EchonetData(
+      tid ?? randomTid,
+      seoj,
+      deoj,
+      esv,
+      properties.map(({ epc, pdc, edt }) => ({
+        epc,
+        pdc,
+        edt: typeof edt === "number" ? BigInt(edt) : edt,
+      })),
+    );
   }
 
   static parse(message: Buffer): EchonetData {
@@ -55,7 +69,15 @@ export class EchonetData {
         throw new Error("Invalid frame: EDT is incomplete.");
       }
 
-      const edt = pdc > 0 ? message.readUIntBE(offset, pdc) : 0; // データ長が0なら0を代入
+      // PDCに基づきEDTをbigintとして取得
+      let edt: bigint;
+      if (pdc > 0) {
+        edt = BigInt(
+          `0x${message.subarray(offset, offset + pdc).toString("hex")}`,
+        );
+      } else {
+        edt = BigInt(0); // データ長が0の場合
+      }
       offset += pdc;
 
       properties.push({ epc, pdc, edt });
@@ -66,7 +88,19 @@ export class EchonetData {
 
   getEdt(epc: number): number {
     const property = this.properties.find((property) => property.epc === epc);
-    if (!property) throw new Error(`Property not found.: ${epc}`);
+    if (!property) {
+      throw new Error(`Property not found.: ${epc}`);
+    } else if (property.pdc > 6) {
+      throw new Error(`Cannot convert to number type.: ${property.edt}`);
+    }
+    return Number(property.edt);
+  }
+
+  getEdtAsBigInt(epc: number): bigint {
+    const property = this.properties.find((property) => property.epc === epc);
+    if (!property) {
+      throw new Error(`Property not found.: ${epc}`);
+    }
     return property.edt;
   }
 
@@ -91,7 +125,9 @@ export class EchonetData {
       this.properties.map(({ epc, pdc, edt }) => {
         const edtBuffer = pdc > 0 ? Buffer.alloc(pdc) : Buffer.alloc(0); // PDCが0の場合に空のBuffer
         if (pdc > 0) {
-          edtBuffer.writeUIntBE(edt, 0, pdc); // Big-endianで書き込み
+          // bigintをBufferに書き込み
+          const edtHex = edt.toString(16).padStart(pdc * 2, "0"); // pdcバイト長に合わせる
+          Buffer.from(edtHex, "hex").copy(edtBuffer);
         }
         return Buffer.concat([
           Buffer.from([epc]),
@@ -135,5 +171,5 @@ export class EchonetData {
 export interface EchonetProperty {
   epc: number; // プロパティコード
   pdc: number; // データ長
-  edt: number; // プロパティデータ
+  edt: bigint; // プロパティデータ
 }
