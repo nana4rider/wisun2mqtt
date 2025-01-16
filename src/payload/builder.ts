@@ -38,13 +38,15 @@ export function buildEntity(
   return { ...baseMessage, ...optionMessage } as const;
 }
 
-export function buildDevice(deviceId: string): Readonly<Payload> {
+export function buildDevice(
+  deviceId: string,
+  manufacturer: string,
+): Readonly<Payload> {
   return {
     device: {
       identifiers: [`wisun2mqtt_${deviceId}`],
-      name: `wisun2mqtt.${deviceId}`,
-      model: "wisun2mqtt",
-      manufacturer: "nana4rider",
+      name: `低圧スマート電力量メータ`,
+      manufacturer,
     },
   };
 }

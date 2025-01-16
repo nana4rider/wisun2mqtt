@@ -10,7 +10,9 @@ async function main() {
   const smartMeterClient = await initializeSmartMeterClient();
   const mqtt = await setupMqttDeviceManager(smartMeterClient);
   const http = await initializeHttpServer();
-  const { deviceId, entities } = smartMeterClient;
+  const {
+    device: { deviceId, entities },
+  } = smartMeterClient;
   const availability = setupAvailability(deviceId, entities, mqtt);
 
   const handleShutdown = async () => {

@@ -4,27 +4,19 @@ import { buildDevice, buildEntity, buildOrigin } from "@/payload/builder";
 import { getTopic, TopicType } from "@/payload/topic";
 import initializeMqttClient from "@/service/mqtt";
 import { SmartMeterClient } from "@/service/smartMeter";
-import assert from "assert";
 import { setTimeout } from "timers/promises";
 
 export default async function setupMqttDeviceManager(
   smartMeterClient: SmartMeterClient,
 ) {
-  const { deviceId, entities } = smartMeterClient;
+  const {
+    device: { deviceId, entities, manufacturer },
+  } = smartMeterClient;
 
   const origin = await buildOrigin();
-  const device = buildDevice(deviceId);
+  const device = buildDevice(deviceId, manufacturer);
 
   const mqtt = await initializeMqttClient();
-
-  // 状態の変更を検知して送信
-  smartMeterClient.addListener((entityId: string, value: string) => {
-    const entity = entities.find((entity) => entity.id === entityId);
-    assert(entity !== undefined);
-    mqtt.publish(getTopic(deviceId, entity, TopicType.STATE), value, {
-      retain: true,
-    });
-  });
 
   entities.forEach((entity) => {
     // Home Assistantでデバイスを検出
@@ -40,12 +32,32 @@ export default async function setupMqttDeviceManager(
     );
   });
 
-  // 定期的にリクエスト要求
+  // 定期的にエンティティの状態を更新
   void (async () => {
     while (true) {
       logger.info("Starting periodic ECHONET property fetch...");
       try {
-        await smartMeterClient.request();
+        const echonetData = await smartMeterClient.fetchData(
+          entities.map((entity) => entity.epc),
+        );
+        logger.debug(`Receive message: ${echonetData.toString()}`);
+        echonetData.properties.forEach((property) => {
+          const entity = entities.find((entity) => entity.epc === property.epc);
+          if (entity === undefined) {
+            logger.warn(
+              `エンティティに存在しないプロパティ: epc=${property.epc} edt=${property.edt}`,
+            );
+            return;
+          }
+          const stateValue = entity.converter(property.edt);
+          mqtt.publish(
+            getTopic(deviceId, entity, TopicType.STATE),
+            stateValue,
+            {
+              retain: true,
+            },
+          );
+        });
       } catch (err) {
         logger.error("Failed to fetch ECHONET properties", err);
       }

@@ -37,10 +37,6 @@ export class EchonetData {
     const esv = message.readUInt8(10); // サービスコード
     const opc = message.readUInt8(11); // プロパティ数
 
-    if (opc === 0) {
-      throw new Error("Invalid frame: No properties found.");
-    }
-
     const properties: EchonetProperty[] = [];
     let offset = 12;
 
@@ -59,7 +55,7 @@ export class EchonetData {
         throw new Error("Invalid frame: EDT is incomplete.");
       }
 
-      const edt = message.readUIntBE(offset, pdc); // プロパティデータ
+      const edt = pdc > 0 ? message.readUIntBE(offset, pdc) : 0; // データ長が0なら0を代入
       offset += pdc;
 
       properties.push({ epc, pdc, edt });
@@ -93,8 +89,10 @@ export class EchonetData {
     const opc = Buffer.from([this.properties.length]);
     const propertyData = Buffer.concat(
       this.properties.map(({ epc, pdc, edt }) => {
-        const edtBuffer = Buffer.alloc(pdc);
-        edtBuffer.writeUIntBE(edt, 0, pdc); // Big-endianで書き込み
+        const edtBuffer = pdc > 0 ? Buffer.alloc(pdc) : Buffer.alloc(0); // PDCが0の場合に空のBuffer
+        if (pdc > 0) {
+          edtBuffer.writeUIntBE(edt, 0, pdc); // Big-endianで書き込み
+        }
         return Buffer.concat([
           Buffer.from([epc]),
           Buffer.from([pdc]),

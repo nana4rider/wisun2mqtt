@@ -14,17 +14,19 @@ import { readFile, rm, writeFile } from "fs/promises";
 import { pEvent } from "p-event";
 
 export type SmartMeterClient = {
-  deviceId: string;
-  entities: Entity[];
-  addListener: (listen: (entityId: string, value: string) => void) => void;
-  request: () => Promise<void>;
+  device: {
+    deviceId: string;
+    manufacturer: string;
+    entities: Entity[];
+  };
+  fetchData: (epcs: number[]) => Promise<EchonetData>;
   close: () => Promise<void>;
 };
 
 export default async function initializeSmartMeterClient(): Promise<SmartMeterClient> {
   const [wiSunConnector, panInfo] = await initializeWiSunConnector();
 
-  const getEchonetLite = async (epcs: number[]): Promise<EchonetData> => {
+  const fetchData = async (epcs: number[]): Promise<EchonetData> => {
     const requestData = EchonetData.create({
       seoj: 0x05ff01, // コントローラー
       deoj: 0x028801, // スマートメーター
@@ -60,9 +62,10 @@ export default async function initializeSmartMeterClient(): Promise<SmartMeterCl
   };
 
   // エンティティの構成に必要なプロパティを要求
-  const initialData = await getEchonetLite([
+  const initialData = await fetchData([
     0xe1, // 積算電力量単位 (正方向、逆方向計測値)
     0xd3, // 係数
+    0x8a, // メーカー
   ]);
   // 積算電力量単位
   const cumulativeMultiplier = convertUnitForCumulativeElectricEnergy(
@@ -76,7 +79,8 @@ export default async function initializeSmartMeterClient(): Promise<SmartMeterCl
   if (!panInfo["Addr"]) {
     throw new Error("paninfo[Addr] is empty.");
   }
-  const deviceId = panInfo["Addr"];
+  const deviceId = `smartMeter_${panInfo["Addr"]}`;
+  const manufacturer = initialData.getEdt(0x8a).toString(16).padStart(6, "0");
   const entities: Entity[] = [];
 
   // Home Assistantに登録するエンティティ
@@ -117,7 +121,13 @@ export default async function initializeSmartMeterClient(): Promise<SmartMeterCl
     nativeValue: "float",
     unitPrecision: 1,
     epc: 0xe8,
-    converter: (value) => String(value * 0.1),
+    converter: (value) => {
+      // R相
+      const rPhase = (value >> 16) & 0xffff;
+      // T相
+      const tPhase = value & 0xffff;
+      return String((rPhase + (tPhase === 0x7ffe ? 0 : tPhase)) * 0.1);
+    },
   });
   entities.push({
     id: "normalDirectionCumulativeElectricEnergy",
@@ -146,37 +156,13 @@ export default async function initializeSmartMeterClient(): Promise<SmartMeterCl
       String(value * cumulativeMultiplier * cumulativeCoefficient),
   });
 
-  // エンティティの更新を通知するリスナー
-  const addListener = (listener: (entityId: string, value: string) => void) => {
-    wiSunConnector.on("message", (message: Buffer) => {
-      const echonetData = EchonetData.parse(message);
-      logger.debug(`Receive message: ${echonetData.toString()}`);
-      echonetData.properties.forEach(({ epc, edt }) => {
-        const entity = entities.find((entity) => entity.epc === epc);
-        if (!entity) {
-          return;
-        }
-        listener(entity.id, entity.converter(edt));
-      });
-    });
-  };
-
-  const request = async () => {
-    await getEchonetLite([
-      0x80, // 動作状態
-      0x88, // 異常発生状態
-      0xe7, // 瞬時電力計測値
-      0xe8, // 瞬時電流計測値
-      0xe0, // 積算電力量計測値 (正方向計測値)
-      0xe3, // 積算電力量計測値 (逆方向計測値)
-    ]);
-  };
-
   return {
-    deviceId,
-    entities,
-    addListener,
-    request,
+    device: {
+      deviceId,
+      manufacturer,
+      entities,
+    },
+    fetchData,
     close: () => wiSunConnector.close(),
   };
 }
