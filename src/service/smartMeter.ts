@@ -10,7 +10,7 @@ import logger from "@/logger";
 import { getDecimalPlaces, parseJson } from "@/util/dataTransformUtil";
 import assert from "assert";
 import fileExists from "file-exists";
-import { readFile, rm, writeFile } from "fs/promises";
+import { readFile, writeFile } from "fs/promises";
 import { pEvent } from "p-event";
 
 export type SmartMeterClient = {
@@ -188,7 +188,6 @@ async function initializeWiSunConnector(): Promise<[WiSunConnector, PanInfo]> {
       }
     } catch (err) {
       logger.warn("[SmartMeter] キャッシュされたPan情報で接続失敗", err);
-      await rm(env.PAN_INFO_PATH);
     }
   }
   if (!panInfo) {

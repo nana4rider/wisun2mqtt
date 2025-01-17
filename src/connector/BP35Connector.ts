@@ -15,7 +15,7 @@ const SCAN_DURATION = 6;
 const COMMAND_TIMEOUT = 3000;
 /** SKSCAN 2のタイムアウト スキャン時間 0.0096 sec * (2^<DURATION> + 1) */
 const SCAN_TIMEOUT =
-  0.0096 * (2 ^ (SCAN_DURATION + 1)) * 28 * 1000 + COMMAND_TIMEOUT;
+  0.0096 * 2 ** (SCAN_DURATION + 1) * 28 * 1000 + COMMAND_TIMEOUT;
 /** SKJOINのタイムアウト */
 const JOIN_TIMEOUT = 38000 + COMMAND_TIMEOUT;
 
@@ -53,7 +53,7 @@ export class BP35Connector extends Emitter<Events> implements WiSunConnector {
   constructor(device: string, side: 0 | 1 | undefined = undefined) {
     super();
 
-    this.extendArg = side ? ` ${side}` : "";
+    this.extendArg = side !== undefined ? ` ${side}` : "";
     this.serialPort = new SerialPort({ path: device, baudRate: BAUDRATE });
     this.parser = this.serialPort.pipe(
       new DelimiterParser({ delimiter: Buffer.from(CRLF, "utf-8") }),
@@ -82,17 +82,17 @@ export class BP35Connector extends Emitter<Events> implements WiSunConnector {
         logger.error(`Invalid data format in ERXUDP message: ${textData}`);
         return;
       }
-      assert(commandMatcher.input && commandMatcher.groups);
+      assert(commandMatcher.groups);
 
       // バイナリデータを切り出し
-      const binaryDataStartIndex = commandMatcher.input.length + 1;
+      const binaryDataStartIndex = commandMatcher[0].length;
       const binaryDataLength = parseInt(commandMatcher.groups.datalen, 16);
       const message = data.subarray(
         binaryDataStartIndex,
         binaryDataStartIndex + binaryDataLength,
       );
       logger.debug(
-        `SerialPort response: ${commandMatcher.input}<HEX:${message.toString("hex")}>`,
+        `SerialPort response: ${commandMatcher[0]}<HEX:${message.toString("hex")}>`,
       );
 
       // ポートとヘッダを確認
