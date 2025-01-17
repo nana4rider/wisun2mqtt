@@ -33,8 +33,9 @@ export default async function setupMqttDeviceManager(
   });
 
   // 定期的にエンティティの状態を更新
-  void (async () => {
-    while (true) {
+  let isAutoRequestRunning = true;
+  const autoRequestTask = (async () => {
+    while (isAutoRequestRunning) {
       logger.info("Starting periodic ECHONET property fetch...");
       try {
         const echonetData = await smartMeterClient.fetchData(
@@ -44,7 +45,7 @@ export default async function setupMqttDeviceManager(
         echonetData.properties.forEach((property) => {
           const entity = entities.find((entity) => entity.epc === property.epc);
           if (entity === undefined) {
-            logger.warn(
+            logger.error(
               `エンティティに存在しないプロパティ: epc=${property.epc} edt=${property.edt}`,
             );
             return;
@@ -65,5 +66,10 @@ export default async function setupMqttDeviceManager(
     }
   })();
 
-  return mqtt;
+  const stopAutoRequest = async () => {
+    isAutoRequestRunning = false;
+    await autoRequestTask;
+  };
+
+  return { mqtt, stopAutoRequest };
 }

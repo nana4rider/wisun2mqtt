@@ -8,7 +8,8 @@ async function main() {
   logger.info("start");
 
   const smartMeterClient = await initializeSmartMeterClient();
-  const mqtt = await setupMqttDeviceManager(smartMeterClient);
+  const { mqtt, stopAutoRequest } =
+    await setupMqttDeviceManager(smartMeterClient);
   const http = await initializeHttpServer();
   const {
     device: { deviceId, entities },
@@ -16,11 +17,13 @@ async function main() {
   const availability = setupAvailability(deviceId, entities, mqtt);
 
   const handleShutdown = async () => {
-    logger.info("shutdown");
+    logger.info("shutdown start");
+    await stopAutoRequest();
     availability.close();
     await mqtt.close(true);
     await http.close();
     await smartMeterClient.close();
+    logger.info("shutdown finished");
     process.exit(0);
   };
 
