@@ -1,4 +1,4 @@
-import { BP35C2Connector } from "@/connector/BP35C2Connector";
+import { BP35Connector } from "@/connector/BP35Connector";
 
 export type PanInfo = {
   [name in string]: string;
@@ -57,21 +57,40 @@ export interface WiSunConnector {
   close(): Promise<void>;
 }
 
+export const WiSunConnectorModels = [
+  // https://www.rohm.co.jp/products/wireless-communication/specified-low-power-radio-modules/bp35a1-product
+  "BP35A1",
+  // https://www.rohm.co.jp/products/wireless-communication/specified-low-power-radio-modules/bp35c0-product
+  "BP35C0",
+  "BP35C2",
+  // https://www.incom.co.jp/products/detail.php?company_id=3166&product_id=64453
+  "WSR35A1-00",
+  // https://www.ratocsystems.com/products/wisun/usb-wisun/rs-wsuha/
+  "RS-WSUHA-P",
+] as const;
+
+type WiSunConnectorModel = (typeof WiSunConnectorModels)[number];
+
 /**
  * 指定したモデルのWi-SUNコネクタのインスタンスを取得します
  *
- * @param model
+ * @param model Wi-SUNコネクタのモデル
  * @param device シリアルポートのパス
  * @returns
  */
 export default function createWiSunConnector(
-  model: string,
+  model: WiSunConnectorModel,
   device: string,
 ): WiSunConnector {
   switch (model) {
+    case "BP35C0":
     case "BP35C2":
-      return new BP35C2Connector(device);
+    case "RS-WSUHA-P":
+      return new BP35Connector(device, 0);
+    case "BP35A1":
+    case "WSR35A1-00":
+      return new BP35Connector(device);
     default:
-      throw new Error(`Unsupported model: ${model}`);
+      throw new Error(`Unsupported model: ${String(model)}`);
   }
 }

@@ -1,3 +1,4 @@
+import { WiSunConnectorModels } from "@/connector/WiSunConnector";
 import { cleanEnv, num, port, str } from "envalid";
 
 const env = cleanEnv(process.env, {
@@ -29,15 +30,14 @@ const env = cleanEnv(process.env, {
   }),
   ECHONET_GET_TIMEOUT: num({
     desc: "GET要求のタイムアウト",
-    default: 10000, // 4000msくらいはかかる
+    default: 8000, // 4000msくらいはかかる
   }),
-  WISUN_CONNECTOR: str({
-    desc: "Wi-SUNコネクタ",
-    default: "BP35C2",
-    choices: ["BP35C2"],
+  WISUN_CONNECTOR_MODEL: str({
+    desc: "Wi-SUNコネクタのモデル",
+    choices: WiSunConnectorModels,
   }),
-  WISUN_DEVICE: str({
-    desc: "デバイス名",
+  WISUN_CONNECTOR_DEVICE_PATH: str({
+    desc: "Wi-SUNコネクタのデバイスパス",
     default: "/dev/ttyUSB0",
     example: "/dev/ttyUSB0 or COM3",
   }),

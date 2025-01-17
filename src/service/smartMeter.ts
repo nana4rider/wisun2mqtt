@@ -170,8 +170,8 @@ export default async function initializeSmartMeterClient(): Promise<SmartMeterCl
 
 async function initializeWiSunConnector(): Promise<[WiSunConnector, PanInfo]> {
   const wiSunConnector = createWiSunConnector(
-    env.WISUN_CONNECTOR,
-    env.WISUN_DEVICE,
+    env.WISUN_CONNECTOR_MODEL,
+    env.WISUN_CONNECTOR_DEVICE_PATH,
   );
   await wiSunConnector.setAuth(env.ROUTE_B_ID, env.ROUTE_B_PASSWORD);
 

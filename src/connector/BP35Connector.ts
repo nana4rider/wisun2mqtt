@@ -1,23 +1,33 @@
 import { PanInfo, WiSunConnector } from "@/connector/WiSunConnector";
 import logger from "@/logger";
 import { ReadlineParser } from "@serialport/parser-readline";
+import assert from "assert";
 import { pEvent, TimeoutError } from "p-event";
 import { DelimiterParser, SerialPort } from "serialport";
 import { Emitter } from "strict-event-emitter";
 import { setTimeout } from "timers/promises";
 
+/** ボーレート */
 const BAUDRATE = 115200;
-const SCAN_DURATION = 6; // スキャンのデフォルト期間
-const SCAN_TIMEOUT = 30000; // スキャンのタイムアウト (ms)
-const JOIN_TIMEOUT = 30000; // ジョインのタイムアウト (ms)
-const COMMAND_TIMEOUT = 5000; // スキャンを除くコマンドのタイムアウト
+/** スキャン間隔 */
+const SCAN_DURATION = 6;
+/** コマンドのタイムアウト */
+const COMMAND_TIMEOUT = 3000;
+/** SKSCAN 2のタイムアウト スキャン時間 0.0096 sec * (2^<DURATION> + 1) */
+const SCAN_TIMEOUT =
+  0.0096 * (2 ^ (SCAN_DURATION + 1)) * 28 * 1000 + COMMAND_TIMEOUT;
+/** SKJOINのタイムアウト */
+const JOIN_TIMEOUT = 38000 + COMMAND_TIMEOUT;
+
 const CRLF = "\r\n";
-const HEX_PORT = "0E1A"; // 3610
+const HEX_ECHONET_PORT = "0E1A"; // 3610
 
 const ErrorMessages = new Map<string, string>([
+  // ER01-ER03 Reserved
   ["ER04", "指定されたコマンドがサポートされていない"],
   ["ER05", "指定されたコマンドの引数の数が正しくない"],
   ["ER06", "指定されたコマンドの引数形式や値域が正しくない"],
+  // ER07-ER08 Reserved
   ["ER09", "UART 入力エラーが発生した"],
   ["ER10", "指定されたコマンドは受付けたが、実行結果が失敗した"],
 ]);
@@ -27,26 +37,31 @@ type Events = {
   error: [err: Error]; // エラーイベント
 };
 
-/**
- * https://www.furutaka-netsel.co.jp/maker/rohm/bp35c2
- */
-export class BP35C2Connector extends Emitter<Events> implements WiSunConnector {
+export class BP35Connector extends Emitter<Events> implements WiSunConnector {
   private serialPort: SerialPort;
   private parser: ReadlineParser;
   private ipv6Address: string | undefined;
+  private extendArg: string;
 
   /**
    * BP35C2Connector クラスのインスタンスを初期化します。
    *
    * @param device シリアルポートのパス
+   * @param side B面:0 HAN面:1
+   * @param
    */
-  constructor(device: string) {
+  constructor(device: string, side: 0 | 1 | undefined = undefined) {
     super();
+
+    this.extendArg = side ? ` ${side}` : "";
     this.serialPort = new SerialPort({ path: device, baudRate: BAUDRATE });
     this.parser = this.serialPort.pipe(
       new DelimiterParser({ delimiter: Buffer.from(CRLF, "utf-8") }),
     );
+    this.setupSerialEventHandlers();
+  }
 
+  private setupSerialEventHandlers() {
     // シリアルポートからのデータ受信
     this.parser.on("data", (data: Buffer) => {
       const textData = data.toString("utf8");
@@ -60,33 +75,37 @@ export class BP35C2Connector extends Emitter<Events> implements WiSunConnector {
         return;
       }
 
-      // ERXUDP の場合、データ長い部分を抽出
-      const byteLengthStartIndex = 118;
-      const byteLengthEndIndex = byteLengthStartIndex + 4;
-      const lengthString = textData.substring(
-        byteLengthStartIndex,
-        byteLengthEndIndex,
+      const commandMatcher = textData.match(
+        /^ERXUDP (?<sender>.{39}) (?<dest>.{39}) (?<rport>.{4}) (?<lport>.{4}) (?<senderlla>.{16}) (?<secured>.) (?<side>.) (?<datalen>[0-9A-F]{4}) /,
       );
-      const dataLength = parseInt(lengthString, 16);
-      if (isNaN(dataLength) || dataLength < 0) {
-        console.error("Invalid data length in ERXUDP message:", lengthString);
+      if (!commandMatcher) {
+        logger.error(`Invalid data format in ERXUDP message: ${textData}`);
+        return;
+      }
+      assert(commandMatcher.input && commandMatcher.groups);
+
+      // バイナリデータを切り出し
+      const binaryDataStartIndex = commandMatcher.input.length + 1;
+      const binaryDataLength = parseInt(commandMatcher.groups.datalen, 16);
+      const message = data.subarray(
+        binaryDataStartIndex,
+        binaryDataStartIndex + binaryDataLength,
+      );
+      logger.debug(
+        `SerialPort response: ${commandMatcher.input}<HEX:${message.toString("hex")}>`,
+      );
+
+      // ポートとヘッダを確認
+      if (
+        commandMatcher.groups.rport !== HEX_ECHONET_PORT ||
+        commandMatcher.groups.lport !== HEX_ECHONET_PORT ||
+        message.readUInt16BE(0) !== 0x1081
+      ) {
+        // ECHONET Liteのデータではない
         return;
       }
 
-      // バイナリデータを切り出し
-      const binaryDataStartIndex = byteLengthEndIndex + 1;
-      const message = data.subarray(
-        binaryDataStartIndex,
-        binaryDataStartIndex + dataLength,
-      );
-      logger.debug(
-        `SerialPort response: ${textData.substring(0, binaryDataStartIndex)}<HEX:${message.toString("hex")}>`,
-      );
-
-      // ECHONET Liteメッセージならイベントを発火
-      if (message.readUInt16BE(0) === 0x1081) {
-        this.emit("message", message);
-      }
+      this.emit("message", message);
     });
 
     // シリアルポートのエラーハンドリング
@@ -128,7 +147,8 @@ export class BP35C2Connector extends Emitter<Events> implements WiSunConnector {
         responses.push(textData);
 
         if (expected(textData)) {
-          return true; // 条件に一致したら解決
+          // 条件に一致したら待機終了
+          return true;
         } else if (textData.startsWith("FAIL")) {
           const errorCode = textData.substring(5);
           const errorMessage = ErrorMessages.get(errorCode) ?? "Unknown";
@@ -174,7 +194,7 @@ export class BP35C2Connector extends Emitter<Events> implements WiSunConnector {
       .toUpperCase()
       .padStart(4, "0");
     const commandBuffer = Buffer.from(
-      `SKSENDTO 1 ${this.ipv6Address} ${HEX_PORT} 1 0 ${hexDataLength} `,
+      `SKSENDTO 1 ${this.ipv6Address} ${HEX_ECHONET_PORT} 1${this.extendArg} ${hexDataLength} `,
       "utf8",
     );
 
@@ -199,7 +219,7 @@ export class BP35C2Connector extends Emitter<Events> implements WiSunConnector {
     logger.info("Configuring Wi-SUN connection...");
     await this.sendCommand(`SKSREG S2 ${panInfo["Channel"]}`);
     await this.sendCommand(`SKSREG S3 ${panInfo["Pan ID"]}`);
-    const [, ipv6Address] = await this.sendCommand(
+    const [_echo, ipv6Address] = await this.sendCommand(
       `SKLL64 ${panInfo["Addr"]}`,
       (data) => !data.startsWith("SKLL64"),
     );
@@ -218,8 +238,8 @@ export class BP35C2Connector extends Emitter<Events> implements WiSunConnector {
 
   private async scanInternal(): Promise<PanInfo | undefined> {
     logger.info("Starting PAN scan...");
-    const [, , ...responses] = await this.sendCommand(
-      `SKSCAN 2 FFFFFFFF ${SCAN_DURATION} 0`,
+    const [_echo, _ok, ...responses] = await this.sendCommand(
+      `SKSCAN 2 FFFFFFFF ${SCAN_DURATION}${this.extendArg}`,
       (data) => data.startsWith("EVENT 22"),
       SCAN_TIMEOUT,
     );
