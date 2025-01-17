@@ -119,6 +119,26 @@ export class BP35C2Connector extends Emitter<Events> implements WiSunConnector {
     }
     logger.debug(`Sending command: ${logCommand}`);
 
+    // データ受信待機の開始（送信前）
+    const responses: string[] = [];
+    const dataPromise = pEvent(this.parser, "data", {
+      timeout,
+      filter: (data: Buffer) => {
+        const textData = data.toString("utf8");
+        responses.push(textData);
+
+        if (expected(textData)) {
+          return true; // 条件に一致したら解決
+        } else if (textData.startsWith("FAIL")) {
+          const errorCode = textData.substring(5);
+          const errorMessage = ErrorMessages.get(errorCode) ?? "Unknown";
+          throw new Error(`[${errorCode}] ${errorMessage}`);
+        }
+
+        return false;
+      },
+    });
+
     // コマンドを送信
     await new Promise<void>((resolve, reject) => {
       this.serialPort.write(sendCommand, (err) => {
@@ -129,26 +149,9 @@ export class BP35C2Connector extends Emitter<Events> implements WiSunConnector {
       });
     });
 
-    // データを受信
-    const responses: string[] = [];
+    // データの受信を待機
     try {
-      await pEvent(this.parser, "data", {
-        timeout,
-        filter: (data: Buffer) => {
-          const textData = data.toString("utf8");
-          responses.push(textData);
-
-          if (expected(textData)) {
-            return true; // 条件に一致したら解決
-          } else if (textData.startsWith("FAIL")) {
-            const errorCode = textData.substring(5);
-            const errorMessage = ErrorMessages.get(errorCode) ?? "Unknown";
-            throw new Error(`[${errorCode}] ${errorMessage}`);
-          }
-
-          return false;
-        },
-      });
+      await dataPromise;
     } catch (err) {
       if (err instanceof TimeoutError) {
         throw new Error(`Command "${logCommand}" timed out after ${timeout}ms`);
