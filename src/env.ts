@@ -24,7 +24,7 @@ const env = cleanEnv(process.env, {
     desc: "オンライン状態を送信する間隔",
     default: 10000,
   }),
-  ENTITY_UPDATE_INTERVAL: num({
+  AUTO_REQUEST_INTERVAL: num({
     desc: "エンティティの更新間隔",
     default: 60000,
   }),

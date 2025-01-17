@@ -1,6 +1,6 @@
 {
   "name": "wisun2mqtt",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "main": "dist/index.js",
   "type": "module",
   "homepage": "https://github.com/nana4rider/wisun2mqtt",
