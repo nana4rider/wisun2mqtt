@@ -26,7 +26,7 @@ const env = cleanEnv(process.env, {
   }),
   AUTO_REQUEST_INTERVAL: num({
     desc: "エンティティの更新間隔",
-    default: 60000,
+    default: 180000,
   }),
   ECHONET_GET_TIMEOUT: num({
     desc: "GET要求のタイムアウト",
