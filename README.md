@@ -17,7 +17,7 @@ ECHONET Liteプロトコルを使用して、Wi-SUN対応スマートメータ�
 ## サポートデバイス
 
 - ROHM BP35C2(動作確認済み)
-- ROHM BP35C2
+- ROHM BP35C0
 - ROHM BP35A1
 - JORJIN WSR35A1-00
 - ラトックシステム RS-WSUHA-P
