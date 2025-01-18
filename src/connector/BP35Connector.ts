@@ -46,15 +46,15 @@ export class BP35Connector extends Emitter<Events> implements WiSunConnector {
   /**
    * BP35C2Connector クラスのインスタンスを初期化します。
    *
-   * @param device シリアルポートのパス
+   * @param devicePath シリアルポートのパス
    * @param side B面:0 HAN面:1
    * @param
    */
-  constructor(device: string, side: 0 | 1 | undefined = undefined) {
+  constructor(devicePath: string, side: 0 | 1 | undefined = undefined) {
     super();
 
     this.extendArg = side !== undefined ? ` ${side}` : "";
-    this.serialPort = new SerialPort({ path: device, baudRate: BAUDRATE });
+    this.serialPort = new SerialPort({ path: devicePath, baudRate: BAUDRATE });
     this.parser = this.serialPort.pipe(
       new DelimiterParser({ delimiter: Buffer.from(CRLF, "utf-8") }),
     );

@@ -13,4 +13,5 @@ export default {
   transform: {
     "^.+\\.(t|j)sx?$": "@swc/jest",
   },
+  transformIgnorePatterns: ["node_modules/(?!(p-event|p-timeout)/)"],
 };

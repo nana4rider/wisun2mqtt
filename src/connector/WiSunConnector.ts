@@ -62,21 +62,21 @@ export interface WiSunConnector {
  * 指定したモデルのWi-SUNコネクタのインスタンスを取得します
  *
  * @param model Wi-SUNコネクタのモデル
- * @param device シリアルポートのパス
+ * @param devicePath シリアルポートのパス
  * @returns
  */
 export default function createWiSunConnector(
   model: WiSunConnectorModel,
-  device: string,
+  devicePath: string,
 ): WiSunConnector {
   switch (model) {
-    case "BP35C0":
     case "BP35C2":
+    case "BP35C0":
     case "RS-WSUHA-P":
-      return new BP35Connector(device, 0);
+      return new BP35Connector(devicePath, 0);
     case "BP35A1":
     case "WSR35A1-00":
-      return new BP35Connector(device);
+      return new BP35Connector(devicePath);
     default:
       throw new Error(`Unsupported model: ${String(model)}`);
   }
