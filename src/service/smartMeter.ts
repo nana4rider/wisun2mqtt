@@ -31,15 +31,15 @@ export default async function initializeSmartMeterClient(): Promise<SmartMeterCl
       seoj: 0x05ff01, // コントローラー
       deoj: 0x028801, // スマートメーター
       esv: 0x62, // GET命令
-      properties: epcs.map((epc) => ({ epc, pdc: 1, edt: 0 })),
+      properties: epcs.map((epc) => ({ epc })),
     });
 
     await wiSunConnector.sendEchonetLite(requestData.toBuffer());
     // GET要求の応答を待つ
     let responseData: EchonetData | undefined = undefined;
     await pEvent<"message", Buffer>(wiSunConnector, "message", {
-      filter: (message) => {
-        const data = EchonetData.parse(message);
+      filter: (frame) => {
+        const data = EchonetData.parse(frame);
         // GET要求に対しての返信である
         if (!requestData.isValidResponse(data)) return false;
 

@@ -22,8 +22,7 @@ export class EchonetData {
     esv: number;
     properties: {
       epc: number;
-      pdc: number;
-      edt: number | bigint;
+      edt?: number | bigint;
     }[];
   }) {
     const randomTid = Math.floor(Math.random() * 0xffff); // 0x0000 〜 0xffff の範囲で生成
@@ -32,40 +31,63 @@ export class EchonetData {
       seoj,
       deoj,
       esv,
-      properties.map(({ epc, pdc, edt }) => ({
-        epc,
-        pdc,
-        edt: typeof edt === "number" ? BigInt(edt) : edt,
-      })),
+      properties.map(({ epc, edt }) => {
+        let edtBigInt;
+        if (typeof edt === "number") {
+          if (!Number.isInteger(edt) || edt < 0) {
+            throw new TypeError(`EDT must be a positive integer, got: ${edt}`);
+          }
+          edtBigInt = BigInt(edt);
+        } else if (typeof edt === "bigint") {
+          if (edt < 0) {
+            throw new RangeError(`EDT must be a positive value, got: ${edt}`);
+          }
+          edtBigInt = edt;
+        } else {
+          edtBigInt = 0n;
+        }
+
+        // 必要最小限の PDC を計算
+        const calculatedPdc = Math.ceil(edtBigInt.toString(16).length / 2); // HEX表現の長さからバイト数を計算
+
+        return {
+          epc,
+          pdc: calculatedPdc,
+          edt: edtBigInt,
+        };
+      }),
     );
   }
 
-  static parse(message: Buffer): EchonetData {
-    if (message.length < 12) {
+  static parse(frame: Buffer): EchonetData {
+    if (frame.readUInt16BE(0) !== 0x1081) {
+      throw new Error("Invalid header");
+    }
+    if (frame.length < 12) {
       throw new Error("Invalid frame: Frame is too short.");
     }
 
-    const tid = message.readUInt16BE(2); // トランザクションID
-    const seoj = message.readUIntBE(4, 3); // 送信元オブジェクト
-    const deoj = message.readUIntBE(7, 3); // 宛先オブジェクト
-    const esv = message.readUInt8(10); // サービスコード
-    const opc = message.readUInt8(11); // プロパティ数
+    const tid = frame.readUInt16BE(2); // トランザクションID
+    const seoj = frame.readUIntBE(4, 3); // 送信元オブジェクト
+    const deoj = frame.readUIntBE(7, 3); // 宛先オブジェクト
+    const esv = frame.readUInt8(10); // サービスコード
+    const opc = frame.readUInt8(11); // プロパティ数
 
     const properties: EchonetProperty[] = [];
     let offset = 12;
 
     for (let i = 0; i < opc; i++) {
-      if (message.length < offset + 2) {
+      if (frame.length < offset + 2) {
         throw new Error("Invalid frame: EPC or PDC is missing.");
       }
 
-      const epc = message.readUInt8(offset); // プロパティコード
+      const epc = frame.readUInt8(offset); // プロパティコード
       offset += 1;
 
-      const pdc = message.readUInt8(offset); // データ長
+      const pdc = frame.readUInt8(offset); // データ長
       offset += 1;
 
-      if (message.length < offset + pdc) {
+      if (frame.length < offset + pdc) {
         throw new Error("Invalid frame: EDT is incomplete.");
       }
 
@@ -73,7 +95,7 @@ export class EchonetData {
       let edt: bigint;
       if (pdc > 0) {
         edt = BigInt(
-          `0x${message.subarray(offset, offset + pdc).toString("hex")}`,
+          `0x${frame.subarray(offset, offset + pdc).toString("hex")}`,
         );
       } else {
         edt = BigInt(0); // データ長が0の場合
