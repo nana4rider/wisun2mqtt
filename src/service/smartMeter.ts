@@ -173,27 +173,34 @@ async function initializeWiSunConnector(): Promise<[WiSunConnector, PanInfo]> {
     env.WISUN_CONNECTOR_MODEL,
     env.WISUN_CONNECTOR_DEVICE_PATH,
   );
-  await wiSunConnector.setAuth(env.ROUTE_B_ID, env.ROUTE_B_PASSWORD);
-
   let panInfo: PanInfo | undefined = undefined;
-  // Pan情報のキャッシュがあれば使う
-  if (await fileExists(env.PAN_INFO_PATH)) {
-    try {
-      const cachedPanInfoText = await readFile(env.PAN_INFO_PATH, "utf8");
-      if (cachedPanInfoText.length !== 0) {
-        const cachedPanInfo: PanInfo = parseJson(cachedPanInfoText);
-        await wiSunConnector.join(cachedPanInfo);
-        panInfo = cachedPanInfo;
-        logger.info("[SmartMeter] キャッシュされたPan情報で接続成功");
+
+  try {
+    await wiSunConnector.setAuth(env.ROUTE_B_ID, env.ROUTE_B_PASSWORD);
+
+    // Pan情報のキャッシュがあれば使う
+    if (await fileExists(env.PAN_INFO_PATH)) {
+      try {
+        const cachedPanInfoText = await readFile(env.PAN_INFO_PATH, "utf8");
+        if (cachedPanInfoText.length !== 0) {
+          const cachedPanInfo: PanInfo = parseJson(cachedPanInfoText);
+          await wiSunConnector.join(cachedPanInfo);
+          panInfo = cachedPanInfo;
+          logger.info("[SmartMeter] キャッシュされたPan情報で接続成功");
+        }
+      } catch (err) {
+        logger.warn("[SmartMeter] キャッシュされたPan情報で接続失敗", err);
       }
-    } catch (err) {
-      logger.warn("[SmartMeter] キャッシュされたPan情報で接続失敗", err);
     }
-  }
-  if (!panInfo) {
-    panInfo = await wiSunConnector.scan(env.WISUN_SCAN_RETRIES);
-    await wiSunConnector.join(panInfo);
-    await writeFile(env.PAN_INFO_PATH, JSON.stringify(panInfo));
+    if (!panInfo) {
+      panInfo = await wiSunConnector.scan(env.WISUN_SCAN_RETRIES);
+      await wiSunConnector.join(panInfo);
+      await writeFile(env.PAN_INFO_PATH, JSON.stringify(panInfo));
+    }
+  } catch (err) {
+    logger.error(`initializeWiSunConnector:`, err);
+    await wiSunConnector.close();
+    throw err;
   }
 
   wiSunConnector.on("error", (err) => logger.error("[SmartMeter] Error:", err));

@@ -1,4 +1,4 @@
-import { WiSunConnectorModels } from "@/connector/WiSunConnector";
+import { WiSunConnectorModels } from "@/connector/WiSunConnectorModel";
 import { cleanEnv, num, port, str } from "envalid";
 
 const env = cleanEnv(process.env, {
