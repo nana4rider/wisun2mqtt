@@ -1,7 +1,4 @@
-import createWiSunConnector, {
-  PanInfo,
-  WiSunConnector,
-} from "@/connector/WiSunConnector";
+import createWiSunConnector, { PanInfo } from "@/connector/WiSunConnector";
 import { EchonetData } from "@/echonet/EchonetData";
 import { convertUnitForCumulativeElectricEnergy } from "@/echonet/echonetHelper";
 import { Entity } from "@/entity";
@@ -24,7 +21,7 @@ export type SmartMeterClient = {
 };
 
 export default async function initializeSmartMeterClient(): Promise<SmartMeterClient> {
-  const [wiSunConnector, panInfo] = await initializeWiSunConnector();
+  const { wiSunConnector, panInfo } = await initializeWiSunConnector();
 
   const fetchData = async (epcs: number[]): Promise<EchonetData> => {
     const requestData = EchonetData.create({
@@ -168,7 +165,8 @@ export default async function initializeSmartMeterClient(): Promise<SmartMeterCl
   };
 }
 
-async function initializeWiSunConnector(): Promise<[WiSunConnector, PanInfo]> {
+// export for test
+export async function initializeWiSunConnector() {
   const wiSunConnector = createWiSunConnector(
     env.WISUN_CONNECTOR_MODEL,
     env.WISUN_CONNECTOR_DEVICE_PATH,
@@ -205,5 +203,5 @@ async function initializeWiSunConnector(): Promise<[WiSunConnector, PanInfo]> {
 
   wiSunConnector.on("error", (err) => logger.error("[SmartMeter] Error:", err));
 
-  return [wiSunConnector, panInfo];
+  return { wiSunConnector, panInfo };
 }
