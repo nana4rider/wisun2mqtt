@@ -34,11 +34,10 @@ export interface WiSunConnector {
    * PAN スキャンを実行し、利用可能なネットワークを検索します。
    *
    * @param maxRetries 最大リトライ回数
-   * @param retryInterval リトライ間隔
    * @returns PAN 情報
    * @throws スキャンが失敗した場合
    */
-  scan(maxRetries: number, retryInterval?: number): Promise<PanInfo>;
+  scan(maxRetries: number): Promise<PanInfo>;
 
   /**
    * PAN の説明を使用して Wi-SUN ネットワークに接続します。

@@ -2,10 +2,9 @@ import { PanInfo, WiSunConnector } from "@/connector/WiSunConnector";
 import logger from "@/logger";
 import { ReadlineParser } from "@serialport/parser-readline";
 import assert from "assert";
-import { pEvent, TimeoutError } from "p-event";
+import { pEvent } from "p-event";
 import { DelimiterParser, SerialPort } from "serialport";
 import { Emitter } from "strict-event-emitter";
-import { setTimeout } from "timers/promises";
 
 /** ボーレート */
 const BAUDRATE = 115200;
@@ -146,17 +145,7 @@ export class BP35Connector extends Emitter<Events> implements WiSunConnector {
       filter: (data: Buffer) => {
         const textData = data.toString("utf8");
         responses.push(textData);
-
-        if (expected(textData)) {
-          // 条件に一致したら待機終了
-          return true;
-        } else if (textData.startsWith("FAIL")) {
-          const errorCode = textData.substring(5);
-          const errorMessage = ErrorMessages.get(errorCode) ?? "Unknown";
-          throw new Error(`[${errorCode}] ${errorMessage}`);
-        }
-
-        return false;
+        return expected(textData) || textData.startsWith("FAIL");
       },
     });
 
@@ -171,13 +160,16 @@ export class BP35Connector extends Emitter<Events> implements WiSunConnector {
     });
 
     // データの受信を待機
-    try {
-      await dataPromise;
-    } catch (err) {
-      if (err instanceof TimeoutError) {
-        throw new Error(`Command "${logCommand}" timed out after ${timeout}ms`);
-      }
-      throw err;
+    await dataPromise;
+
+    // エラーを受信していた場合は例外をスロー
+    const lastResponse = responses[responses.length - 1];
+    if (lastResponse.startsWith("FAIL")) {
+      const errorCode = lastResponse.substring(5);
+      const errorMessage = ErrorMessages.get(errorCode);
+      throw new Error(
+        errorMessage ? `[${errorCode}] ${errorMessage}` : lastResponse,
+      );
     }
 
     return responses;
@@ -263,10 +255,7 @@ export class BP35Connector extends Emitter<Events> implements WiSunConnector {
   }
 
   /** @inheritdoc */
-  async scan(
-    maxRetries: number,
-    retryInterval: number = 1000,
-  ): Promise<PanInfo> {
+  async scan(maxRetries: number): Promise<PanInfo> {
     let retries = 0;
     let panInfo: PanInfo | undefined = undefined;
     while ((panInfo = await this.scanInternal()) === undefined) {
@@ -278,7 +267,6 @@ export class BP35Connector extends Emitter<Events> implements WiSunConnector {
 
       // スキャン失敗時のリトライ処理
       logger.warn(`Scan attempt ${retries}/${maxRetries} failed. Retrying...`);
-      await setTimeout(retryInterval);
     }
 
     return panInfo;
