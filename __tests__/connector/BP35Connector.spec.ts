@@ -40,7 +40,7 @@ const mockPanInfo: PanInfo = {
 
 function createConnector(suportSide = true) {
   const devicePath = "/dev/test";
-  MockBinding.createPort(devicePath, { echo: true });
+  MockBinding.createPort(devicePath, { echo: true, record: true });
   const connector = new BP35Connector(
     devicePath,
     suportSide ? 0 : undefined,
@@ -204,7 +204,7 @@ describe("scan", () => {
   test("[scan] リトライ回数までにスキャンに成功した場合Pan情報を返す", async () => {
     const connector = createConnector();
     initScan(connector, false, true);
-    const resultPanInfo = await connector.scan(3, 10);
+    const resultPanInfo = await connector.scan(3);
 
     expect(resultPanInfo).toEqual(mockPanInfo);
   });
@@ -212,7 +212,7 @@ describe("scan", () => {
   test("[scan] リトライ回数までにスキャンに成功しなかった場合例外をスローする", async () => {
     const connector = createConnector();
     initScan(connector);
-    const actual = connector.scan(3, 10);
+    const actual = connector.scan(3);
 
     await expect(actual).rejects.toThrow("Wi-SUN scan failed");
   });
@@ -507,5 +507,126 @@ describe("setupSerialEventHandlers", () => {
       "An error occurred in the SerialPort:",
       expect.any(Error),
     );
+  });
+});
+
+describe("sendCommand", () => {
+  test("expectedの指定がない場合、OKが返ってくるとPromiseを解決する", async () => {
+    const connector = createConnector();
+    const { serialPort: mockPort, parser: mockParser } = connector;
+    mockParser.on("data", (data: Buffer) => {
+      const command = data.toString("utf8");
+      if (command.match(/^SKTEST/)) {
+        emitText(mockPort, "OK");
+      }
+    });
+
+    const actual = connector.sendCommand("SKTEST");
+
+    await expect(actual).resolves.not.toThrow();
+  });
+
+  test("FAILで想定内のエラーコードが返ってくると、メッセージを付与して例外をスローする", async () => {
+    const connector = createConnector();
+    const { serialPort: mockPort, parser: mockParser } = connector;
+    mockParser.on("data", (data: Buffer) => {
+      const command = data.toString("utf8");
+      if (command.match(/^SKTEST/)) {
+        emitText(mockPort, "FAIL ER04");
+      }
+    });
+
+    const actual = connector.sendCommand("SKTEST");
+
+    await expect(actual).rejects.toThrow(
+      "[ER04] 指定されたコマンドがサポートされていない",
+    );
+  });
+
+  test("FAILで想定外のエラーコードが返ってくると、メッセージを付与せず例外をスローする", async () => {
+    const connector = createConnector();
+    const { serialPort: mockPort, parser: mockParser } = connector;
+    mockParser.on("data", (data: Buffer) => {
+      const command = data.toString("utf8");
+      if (command.match(/^SKTEST/)) {
+        emitText(mockPort, "FAIL UNKNOWN");
+      }
+    });
+
+    const actual = connector.sendCommand("SKTEST");
+
+    await expect(actual).rejects.toThrow("FAIL UNKNOWN");
+  });
+
+  test("expectedの条件を満たすまでのレスポンスを受け取れる", async () => {
+    const connector = createConnector();
+    const { serialPort: mockPort, parser: mockParser } = connector;
+    mockParser.on("data", (data: Buffer) => {
+      const command = data.toString("utf8");
+      if (command.match(/^SKTEST/)) {
+        emitText(mockPort, "FOO");
+        emitText(mockPort, "BAR");
+        emitText(mockPort, "OK");
+      }
+    });
+
+    const actual = await connector.sendCommand("SKTEST");
+
+    // エコーバックを含む
+    expect(actual).toEqual(["SKTEST", "FOO", "BAR", "OK"]);
+  });
+
+  test("テキストコマンドはCRLFを付与する", async () => {
+    const connector = createConnector();
+    const { serialPort: mockPort, parser: mockParser } = connector;
+    mockParser.on("data", (data: Buffer) => {
+      const command = data.toString("utf8");
+      if (command.match(/^SKTEST/)) {
+        emitText(mockPort, "OK");
+      }
+    });
+
+    await connector.sendCommand("SKTEST");
+
+    assert(mockPort.port instanceof MockPortBinding);
+    expect(mockPort.port.recording.toString("utf8")).toBe("SKTEST\r\n");
+  });
+
+  test("バイナリコマンドはCRLFを付与しない", async () => {
+    const connector = createConnector();
+    const { serialPort: mockPort, parser: mockParser } = connector;
+    mockParser.on("data", (data: Buffer) => {
+      const command = data.toString("utf8");
+      if (command.match(/^SKTEST/)) {
+        emitText(mockPort, "OK");
+      }
+    });
+
+    try {
+      await connector.sendCommand(Buffer.from("SKTEST", "utf8"), undefined, 10);
+    } catch (_) {
+      // エコーバックに改行を含まないためfilterが呼び出されずタイムアウトする
+    }
+
+    assert(mockPort.port instanceof MockPortBinding);
+    expect(mockPort.port.recording.toString("utf8")).toBe("SKTEST");
+  });
+
+  test("write処理でエラーが発生すると例外をスローする", async () => {
+    const connector = createConnector();
+    const { serialPort: mockPort } = connector;
+
+    await new Promise((resolve) => mockPort.on("open", resolve));
+
+    mockPort.write = (data, callback) => {
+      assert(typeof callback === "function");
+      callback(new Error("Mock write error")); // 意図的なエラー
+      return false;
+    };
+
+    // dataPromiseのPromiseはタイムアウトまで残るため短めに設定
+    const actual = connector.sendCommand("SKTEST", undefined, 10);
+
+    await expect(actual).rejects.toThrow();
   });
 });
