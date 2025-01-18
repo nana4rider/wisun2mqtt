@@ -71,15 +71,17 @@ export class BP35Connector extends Emitter<Events> implements WiSunConnector {
 
       if (command !== "ERXUDP") {
         // ERXUDP 以外は全体を文字列として扱う
-        logger.debug(`SerialPort response: ${textData}`);
+        logger.debug(`Received TEXT data from SerialPort: ${textData}`);
         return;
       }
 
       const commandMatcher = textData.match(
-        /^ERXUDP (?<sender>.{39}) (?<dest>.{39}) (?<rport>.{4}) (?<lport>.{4}) (?<senderlla>.{16}) (?<secured>.) (?<side>.) (?<datalen>[0-9A-F]{4}) /,
+        /^ERXUDP (?<sender>.{39}) (?<dest>.{39}) (?<rport>.{4}) (?<lport>.{4}) (?<senderlla>.{16}) (?<secured>.) ((?<side>.) )?(?<datalen>[0-9A-F]{4}) /,
       );
       if (!commandMatcher) {
-        logger.error(`Invalid data format in ERXUDP message: ${textData}`);
+        logger.error(
+          `Invalid ERXUDP message format received from SerialPort: ${textData}`,
+        );
         return;
       }
       assert(commandMatcher.groups);
@@ -92,16 +94,15 @@ export class BP35Connector extends Emitter<Events> implements WiSunConnector {
         binaryDataStartIndex + binaryDataLength,
       );
       logger.debug(
-        `SerialPort response: ${commandMatcher[0]}<HEX:${message.toString("hex")}>`,
+        `Parsed ERXUDP message: ${commandMatcher[0]}<HEX:${message.toString("hex")}>`,
       );
 
       // ポートとヘッダを確認
       if (
         commandMatcher.groups.rport !== HEX_ECHONET_PORT ||
-        commandMatcher.groups.lport !== HEX_ECHONET_PORT ||
         message.readUInt16BE(0) !== 0x1081
       ) {
-        // ECHONET Liteのデータではない
+        logger.info("Received data does not match ECHONET Lite format.");
         return;
       }
 
@@ -110,7 +111,7 @@ export class BP35Connector extends Emitter<Events> implements WiSunConnector {
 
     // シリアルポートのエラーハンドリング
     this.serialPort.on("error", (err) => {
-      logger.error("SerialPort error:", err);
+      logger.error("An error occurred in the SerialPort:", err);
       this.emit("error", err);
     });
   }
@@ -246,12 +247,12 @@ export class BP35Connector extends Emitter<Events> implements WiSunConnector {
 
     const panInfo: PanInfo = {};
     responses.forEach((res) => {
-      if (!res.startsWith("  ")) return;
-      const separatorIndex = res.indexOf(":");
-      if (separatorIndex === -1) return;
-      const key = res.substring(2, separatorIndex);
-      const value = res.substring(separatorIndex + 1);
-      panInfo[key] = value;
+      const paninfoMatcher = res.match(
+        /^ {2}(?<key>[a-zA-Z ]+):(?<value>[A-Z0-9]+)/,
+      );
+      if (!paninfoMatcher) return;
+      assert(paninfoMatcher.groups);
+      panInfo[paninfoMatcher.groups.key] = paninfoMatcher.groups.value;
     });
     if (Object.values(panInfo).length === 0) {
       return undefined;
@@ -286,15 +287,14 @@ export class BP35Connector extends Emitter<Events> implements WiSunConnector {
   /** @inheritdoc */
   close(): Promise<void> {
     logger.info("Closing serial port...");
-    return new Promise<void>((resolve, reject) => {
+    return new Promise<void>((resolve) => {
       this.serialPort.close((err) => {
         if (err) {
           logger.error("Failed to close serial port:", err);
-          reject(err);
         } else {
           logger.info("Serial port successfully closed");
-          resolve();
         }
+        resolve();
       });
     });
   }
