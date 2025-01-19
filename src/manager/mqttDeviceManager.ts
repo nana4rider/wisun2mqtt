@@ -13,7 +13,7 @@ export default async function setupMqttDeviceManager(
     device: { deviceId, entities, manufacturer },
   } = smartMeterClient;
 
-  const origin = await buildOrigin();
+  const origin = buildOrigin();
   const device = buildDevice(deviceId, manufacturer);
 
   const mqtt = await initializeMqttClient();

@@ -1,8 +1,12 @@
 import { Entity } from "@/entity";
 import env from "@/env";
 import { getTopic, TopicType } from "@/payload/topic";
-import { readFile } from "fs/promises";
-import type { JsonObject, PackageJson } from "type-fest";
+import type { JsonObject } from "type-fest";
+import {
+  homepage as packageHomepage,
+  name as packageName,
+  version as packageVersion,
+} from "~/package.json";
 
 export type Payload = JsonObject;
 
@@ -51,13 +55,10 @@ export function buildDevice(
   };
 }
 
-export async function buildOrigin(): Promise<Readonly<Payload>> {
-  const { homepage, name, version } = JSON.parse(
-    await readFile("package.json", "utf-8"),
-  ) as PackageJson;
+export function buildOrigin(): Readonly<Payload> {
   const origin: Payload = {};
-  if (typeof name === "string") origin.name = name;
-  if (typeof version === "string") origin.sw_version = version;
-  if (typeof homepage === "string") origin.support_url = homepage;
+  if (typeof packageName === "string") origin.name = packageName;
+  if (typeof packageVersion === "string") origin.sw_version = packageVersion;
+  if (typeof packageHomepage === "string") origin.support_url = packageHomepage;
   return { origin };
 }

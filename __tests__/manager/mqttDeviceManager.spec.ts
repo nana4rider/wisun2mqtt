@@ -26,7 +26,7 @@ describe("setupMqttDeviceManager", () => {
     };
 
     (initializeMqttClient as jest.Mock).mockResolvedValue(mockMqttClient);
-    (buildOrigin as jest.Mock).mockResolvedValue({ origin: "test-origin" });
+    (buildOrigin as jest.Mock).mockReturnValue({ origin: "test-origin" });
     (buildDevice as jest.Mock).mockReturnValue({ device: "test-device" });
     (buildEntity as jest.Mock).mockImplementation(
       (deviceId: string, entity: Entity) => ({

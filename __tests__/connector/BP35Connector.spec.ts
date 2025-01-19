@@ -603,7 +603,11 @@ describe("sendCommand", () => {
     });
 
     try {
-      await connector.sendCommand(Buffer.from("SKTEST", "utf8"), undefined, 10);
+      await connector.sendCommand(
+        Buffer.from("SKTEST", "utf8"),
+        undefined,
+        100,
+      );
     } catch (_) {
       // エコーバックに改行を含まないためfilterが呼び出されずタイムアウトする
     }
