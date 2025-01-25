@@ -114,7 +114,7 @@ export default async function initializeSmartMeterClient(): Promise<SmartMeterCl
     name: "瞬時電流計測値",
     domain: "sensor",
     deviceClass: "current",
-    stateClass: "total_increasing",
+    stateClass: "measurement",
     unit: "A",
     nativeValue: "float",
     unitPrecision: 1,
