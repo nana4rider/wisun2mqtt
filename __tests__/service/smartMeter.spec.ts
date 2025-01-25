@@ -225,7 +225,7 @@ describe("initializeSmartMeterClient", () => {
         id: "instantaneousCurrent",
         name: "瞬時電流計測値",
         nativeValue: "float",
-        stateClass: "total_increasing",
+        stateClass: "measurement",
         unit: "A",
         unitPrecision: 1,
       },
