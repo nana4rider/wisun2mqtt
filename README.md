@@ -26,25 +26,18 @@ ECHONET Liteプロトコルを使用して、Wi-SUN対応スマートメータ�
 
 必要な環境変数については[こちら](https://github.com/nana4rider/wisun2mqtt/blob/main/src/env.ts)をご確認ください。
 
-### Production
+### Native
 
 ```sh
 npm install
 npm run build
-node dist/index
-```
-
-### Development
-
-```sh
-npm install
-npm run dev
+node --env-file=.env dist/index
 ```
 
 ### Docker
 
 ```sh
-# PAN情報をホスト側に配置するとスキャンを省略し、次回からの接続が早くなります。
+# .paninfo をホスト側に配置するとスキャン結果がコンテナ再起動後も残るため、次回からの接続が早くなります。
 touch .paninfo
 
 docker run -d \
@@ -52,8 +45,11 @@ docker run -d \
   --device /dev/ttyUSB0:/dev/ttyUSB0 \
   -v /dev/ttyUSB0:/dev/ttyUSB0 \
   -v $(pwd)/.paninfo.json:/app/.paninfo.json \
-  -p 3000:3000 \
   --env-file .env \
+  -p 3000:3000 \
   --restart always \
   nana4rider/wisun2mqtt:latest
 ```
+
+> [!TIP]
+> 必要な環境変数については[こちら](src/env.ts)をご確認ください。
