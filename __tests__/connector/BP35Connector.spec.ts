@@ -628,9 +628,10 @@ describe("sendCommand", () => {
       return false;
     };
 
-    // dataPromiseのPromiseはタイムアウトまで残るため短めに設定
-    const actual = connector.sendCommand("SKTEST", undefined, 10);
+    const actual = connector.sendCommand("SKTEST", undefined);
 
     await expect(actual).rejects.toThrow();
+
+    emitText(mockPort, "OK"); // pEventを終了させるため
   });
 });
