@@ -1,12 +1,12 @@
 import { Entity } from "@/entity";
 import env from "@/env";
 import { getTopic, TopicType } from "@/payload/topic";
-import type { JsonObject } from "type-fest";
 import {
   homepage as packageHomepage,
   name as packageName,
   version as packageVersion,
-} from "~/package.json";
+} from "package.json";
+import type { JsonObject } from "type-fest";
 
 export type Payload = JsonObject;
 
