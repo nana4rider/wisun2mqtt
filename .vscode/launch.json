@@ -15,7 +15,7 @@
       "type": "node",
       "request": "attach",
       "name": "Remote Debug",
-      "address": "manager",
+      "address": "manager.home",
       "port": 9229,
       "remoteRoot": "/app",
       "localRoot": "${workspaceFolder}"
