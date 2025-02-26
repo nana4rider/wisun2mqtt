@@ -5,7 +5,6 @@ import { Entity } from "@/entity";
 import env from "@/env";
 import logger from "@/logger";
 import { getDecimalPlaces, parseJson } from "@/util/dataTransformUtil";
-import assert from "assert";
 import fileExists from "file-exists";
 import { readFile, writeFile } from "fs/promises";
 import { pEvent } from "p-event";
@@ -31,32 +30,49 @@ export default async function initializeSmartMeterClient(): Promise<SmartMeterCl
       properties: epcs.map((epc) => ({ epc })),
     });
 
-    await wiSunConnector.sendEchonetLite(requestData.toBuffer());
-    // GET要求の応答を待つ
-    let responseData: EchonetData | undefined = undefined;
-    await pEvent<"message", Buffer>(wiSunConnector, "message", {
-      filter: (frame) => {
-        const data = EchonetData.parse(frame);
-        // GET要求に対しての返信である
-        if (!requestData.isValidResponse(data)) return false;
+    const maxRetries = env.ECHONET_GET_RETRIES;
+    for (let retries = 0; retries <= maxRetries; retries++) {
+      try {
+        await wiSunConnector.sendEchonetLite(requestData.toBuffer());
 
-        if (data.esv === 0x72) {
+        const responseData = await pEvent<"message", Buffer>(
+          wiSunConnector,
+          "message",
+          {
+            filter: (frame) => {
+              const data = EchonetData.parse(frame);
+              // GET要求に対しての返信である
+              return requestData.isValidResponse(data);
+            },
+            timeout: env.ECHONET_GET_TIMEOUT,
+          },
+        ).then((frame) => EchonetData.parse(frame));
+
+        if (responseData.esv === 0x72) {
           // 正常終了
-          responseData = data;
-          logger.debug(`[SmartMeter] Receive message: ${data.toString()}`);
-          return true;
+          logger.debug(
+            `[SmartMeter] Receive message: ${responseData.toString()}`,
+          );
         } else {
           // エラー
           logger.error(
-            `[SmartMeter] Receive message Error: ${data.toString()}`,
+            `[SmartMeter] Receive message Error: ${responseData.toString()}`,
           );
-          return false;
+          throw new Error(`Receive message Error: ${responseData.esv}`);
         }
-      },
-      timeout: env.ECHONET_GET_TIMEOUT,
-    });
-    assert(responseData !== undefined);
-    return responseData;
+
+        return responseData;
+      } catch (err) {
+        if (retries < maxRetries) {
+          logger.warn(
+            `[SmartMeter] Error occurred, retrying... (${retries + 1}/${maxRetries})`,
+            err,
+          );
+        }
+      }
+    }
+
+    throw new Error("[SmartMeter] Failed to fetch data after all retries.");
   };
 
   // エンティティの構成に必要なプロパティを要求
