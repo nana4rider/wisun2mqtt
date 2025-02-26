@@ -7,6 +7,7 @@ import initializeSmartMeterClient, {
 } from "@/service/smartMeter";
 import fileExists from "file-exists";
 import * as fsPromises from "fs/promises";
+import { MutableEnv } from "jest.setup";
 import { pEvent } from "p-event";
 
 const mockOn = jest.fn();
@@ -129,6 +130,9 @@ describe("initializeWiSunConnector", () => {
 
   test("WiSunConnectorのエラーイベントが発火されたとき、エラーログを出力する", async () => {
     (fileExists as unknown as jest.Mock).mockResolvedValue(true);
+    (fsPromises.readFile as jest.Mock).mockResolvedValue(
+      JSON.stringify(mockPanInfo),
+    );
     const logErrorSpy = jest.spyOn(logger, "error");
     await initializeWiSunConnector();
 
@@ -168,23 +172,12 @@ describe("initializeSmartMeterClient", () => {
       ],
     }).toBuffer();
 
-    const mockPEvent = pEvent as unknown as jest.Mock<
-      Promise<void>,
-      [
-        connector: WiSunConnector,
-        event: string,
-        options: { filter: (frame: Buffer) => boolean },
-      ]
-    >;
+    const mockPEvent = pEvent as unknown as jest.Mock;
 
     // tid固定
     jest.spyOn(Math, "random").mockReturnValue(0);
 
-    mockPEvent.mockImplementation(() => {
-      const option = mockPEvent.mock.calls[0][2];
-      option.filter(mockResponseBuffer);
-      return Promise.resolve();
-    });
+    mockPEvent.mockResolvedValue(mockResponseBuffer);
 
     const { device } = await initializeSmartMeterClient();
     expect(device.deviceId).toBe("smartMeter_0000111122223333");
@@ -269,23 +262,12 @@ describe("initializeSmartMeterClient", () => {
       ],
     }).toBuffer();
 
-    const mockPEvent = pEvent as unknown as jest.Mock<
-      Promise<void>,
-      [
-        connector: WiSunConnector,
-        event: string,
-        options: { filter: (frame: Buffer) => boolean },
-      ]
-    >;
+    const mockPEvent = pEvent as unknown as jest.Mock;
 
     // tid固定
     jest.spyOn(Math, "random").mockReturnValue(0);
 
-    mockPEvent.mockImplementation(() => {
-      const option = mockPEvent.mock.calls[0][2];
-      option.filter(mockResponseBuffer);
-      return Promise.resolve();
-    });
+    mockPEvent.mockResolvedValue(mockResponseBuffer);
 
     const { device } = await initializeSmartMeterClient();
     // 動作状態
@@ -342,7 +324,7 @@ describe("initializeSmartMeterClient", () => {
     expect(actual).toBe(false);
   });
 
-  test("GET要求に対しての返信がエラーの場合filterがfalseを返す", async () => {
+  test("GET要求に対しての返信がエラーの場合例外をスローする", async () => {
     const mockResponseBuffer = EchonetData.create({
       seoj: 0x028801,
       deoj: 0x05ff01,
@@ -351,35 +333,42 @@ describe("initializeSmartMeterClient", () => {
       properties: [],
     }).toBuffer();
 
-    const mockPEvent = pEvent as unknown as jest.Mock<
-      Promise<void>,
-      [
-        connector: WiSunConnector,
-        event: string,
-        options: { filter: (frame: Buffer) => boolean },
-      ]
-    >;
+    const mockPEvent = pEvent as unknown as jest.Mock;
 
     // tid固定
     jest.spyOn(Math, "random").mockReturnValue(0);
 
-    let actual;
-    mockPEvent.mockImplementation(() => {
-      const option = mockPEvent.mock.calls[0][2];
-      actual = option.filter(mockResponseBuffer);
-      return Promise.resolve();
-    });
+    mockPEvent.mockResolvedValue(mockResponseBuffer);
 
-    try {
-      await initializeSmartMeterClient();
-    } catch (_) {
-      // アサーションは無視する
-    }
+    const actual = initializeSmartMeterClient();
 
-    expect(actual).toBe(false);
+    await expect(actual).rejects.toThrow();
   });
 
-  test("Pan情報のAddrがない場合に例外をすろーする", async () => {
+  test("GET要求に対しての返信がエラーの場合、指定回数リトライされる", async () => {
+    (env as MutableEnv).ECHONET_GET_RETRIES = 2;
+    const mockResponseBuffer = EchonetData.create({
+      seoj: 0x028801,
+      deoj: 0x05ff01,
+      esv: 0x52, // エラー応答
+      tid: 0x00,
+      properties: [],
+    }).toBuffer();
+
+    const mockPEvent = pEvent as unknown as jest.Mock;
+
+    // tid固定
+    jest.spyOn(Math, "random").mockReturnValue(0);
+
+    mockPEvent.mockResolvedValue(mockResponseBuffer);
+
+    const actual = initializeSmartMeterClient();
+
+    await expect(actual).rejects.toThrow();
+    expect(mockPEvent).toHaveBeenCalledTimes(env.ECHONET_GET_RETRIES + 1);
+  });
+
+  test("Pan情報のAddrがない場合に例外をスローする", async () => {
     const mockResponseBuffer = EchonetData.create({
       seoj: 0x028801,
       deoj: 0x05ff01,
@@ -392,23 +381,12 @@ describe("initializeSmartMeterClient", () => {
       ],
     }).toBuffer();
 
-    const mockPEvent = pEvent as unknown as jest.Mock<
-      Promise<void>,
-      [
-        connector: WiSunConnector,
-        event: string,
-        options: { filter: (frame: Buffer) => boolean },
-      ]
-    >;
+    const mockPEvent = pEvent as unknown as jest.Mock;
 
     // tid固定
     jest.spyOn(Math, "random").mockReturnValue(0);
 
-    mockPEvent.mockImplementation(() => {
-      const option = mockPEvent.mock.calls[0][2];
-      option.filter(mockResponseBuffer);
-      return Promise.resolve();
-    });
+    mockPEvent.mockResolvedValue(mockResponseBuffer);
 
     mockScan.mockClear().mockResolvedValue({
       ...mockPanInfo,
@@ -432,23 +410,12 @@ describe("initializeSmartMeterClient", () => {
       ],
     }).toBuffer();
 
-    const mockPEvent = pEvent as unknown as jest.Mock<
-      Promise<void>,
-      [
-        connector: WiSunConnector,
-        event: string,
-        options: { filter: (frame: Buffer) => boolean },
-      ]
-    >;
+    const mockPEvent = pEvent as unknown as jest.Mock;
 
     // tid固定
     jest.spyOn(Math, "random").mockReturnValue(0);
 
-    mockPEvent.mockImplementation(() => {
-      const option = mockPEvent.mock.calls[0][2];
-      option.filter(mockResponseBuffer);
-      return Promise.resolve();
-    });
+    mockPEvent.mockResolvedValue(mockResponseBuffer);
 
     const { close } = await initializeSmartMeterClient();
     await close();

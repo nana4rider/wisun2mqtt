@@ -32,6 +32,7 @@ const env = cleanEnv(process.env, {
     desc: "GET要求のタイムアウト",
     default: 8000, // 4000msくらいはかかる
   }),
+  ECHONET_GET_RETRIES: num({ desc: "GET要求のリトライ回数", default: 2 }),
   WISUN_CONNECTOR_MODEL: str({
     desc: "Wi-SUNコネクタのモデル",
     choices: WiSunConnectorModels,
