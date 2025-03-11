@@ -4,13 +4,15 @@ import { MqttClient } from "@/service/mqtt";
 
 describe("setupAvailability", () => {
   const deviceId = "deviceId1";
-  let mockMqttClient: jest.Mocked<MqttClient>;
+  let mockMqttClient: MqttClient;
   let entities: Entity[];
 
   beforeEach(() => {
     mockMqttClient = {
-      publish: jest.fn(),
-    } as unknown as jest.Mocked<MqttClient>;
+      publish: vi.fn(),
+      taskQueueSize: 0,
+      close: vi.fn(),
+    };
 
     entities = [
       { id: "entity1", name: "Entity 1" },
@@ -19,7 +21,7 @@ describe("setupAvailability", () => {
   });
 
   afterEach(() => {
-    jest.clearAllTimers();
+    vi.clearAllTimers();
   });
 
   it("pushOnline を呼び出すと全てのエンティティにオンライン状態を送信する", () => {
@@ -43,7 +45,7 @@ describe("setupAvailability", () => {
   });
 
   it("close を呼び出すと全てのエンティティにオフライン状態を送信する", () => {
-    jest.useFakeTimers();
+    vi.useFakeTimers();
     const { close } = setupAvailability(deviceId, entities, mockMqttClient);
 
     close();
@@ -58,10 +60,10 @@ describe("setupAvailability", () => {
   });
 
   it("定期的にオンライン状態を送信する", () => {
-    jest.useFakeTimers();
+    vi.useFakeTimers();
     const { close } = setupAvailability(deviceId, entities, mockMqttClient);
 
-    jest.advanceTimersByTime(10000); // Assume AVAILABILITY_INTERVAL is 10000ms
+    vi.advanceTimersByTime(10000); // Assume AVAILABILITY_INTERVAL is 10000ms
 
     expect(mockMqttClient.publish).toHaveBeenCalledTimes(entities.length);
     entities.forEach((entity) => {
@@ -71,7 +73,7 @@ describe("setupAvailability", () => {
       );
     });
 
-    jest.advanceTimersByTime(10000);
+    vi.advanceTimersByTime(10000);
 
     expect(mockMqttClient.publish).toHaveBeenCalledTimes(entities.length * 2);
 
