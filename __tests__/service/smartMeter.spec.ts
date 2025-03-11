@@ -7,8 +7,8 @@ import initializeSmartMeterClient, {
 } from "@/service/smartMeter";
 import fileExists from "file-exists";
 import * as fsPromises from "fs/promises";
-import { MutableEnv } from "jest.setup";
 import { pEvent } from "p-event";
+import { Writable } from "type-fest";
 
 const mockOn = jest.fn();
 const mockSetAuth = jest.fn();
@@ -59,6 +59,7 @@ const mockPanInfo: PanInfo = {
 };
 
 beforeEach(() => {
+  (env as Writable<typeof env>).ECHONET_GET_RETRIES = 0;
   jest.resetAllMocks();
 });
 
@@ -346,7 +347,7 @@ describe("initializeSmartMeterClient", () => {
   });
 
   test("GET要求に対しての返信がエラーの場合、指定回数リトライされる", async () => {
-    (env as MutableEnv).ECHONET_GET_RETRIES = 2;
+    (env as Writable<typeof env>).ECHONET_GET_RETRIES = 2;
     const mockResponseBuffer = EchonetData.create({
       seoj: 0x028801,
       deoj: 0x05ff01,
@@ -365,7 +366,7 @@ describe("initializeSmartMeterClient", () => {
     const actual = initializeSmartMeterClient();
 
     await expect(actual).rejects.toThrow();
-    expect(mockPEvent).toHaveBeenCalledTimes(env.ECHONET_GET_RETRIES + 1);
+    expect(mockPEvent).toHaveBeenCalledTimes(3);
   });
 
   test("Pan情報のAddrがない場合に例外をスローする", async () => {

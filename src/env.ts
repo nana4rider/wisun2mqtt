@@ -1,10 +1,22 @@
 import { WiSunConnectorModels } from "@/connector/WiSunConnectorModel";
-import { cleanEnv, num, port, str } from "envalid";
+import { cleanEnv, num, port, str, testOnly } from "envalid";
 
 const env = cleanEnv(process.env, {
-  MQTT_BROKER: str({ desc: "MQTTブローカー", example: "mqtt://localhost" }),
-  MQTT_USERNAME: str({ desc: "MQTTユーザ名", default: undefined }),
-  MQTT_PASSWORD: str({ desc: "MQTTパスワード", default: undefined }),
+  MQTT_BROKER: str({
+    desc: "MQTTブローカー",
+    example: "mqtt://localhost",
+    devDefault: testOnly("mqtt://mqtt-broker"),
+  }),
+  MQTT_USERNAME: str({
+    desc: "MQTTユーザ名",
+    default: undefined,
+    devDefault: testOnly("test-user"),
+  }),
+  MQTT_PASSWORD: str({
+    desc: "MQTTパスワード",
+    default: undefined,
+    devDefault: testOnly("test-password"),
+  }),
   MQTT_TASK_INTERVAL: num({ desc: "MQTTタスク実行間隔", default: 100 }),
   ENTITY_QOS: num({
     desc: "エンティティのQOS設定",
@@ -19,6 +31,7 @@ const env = cleanEnv(process.env, {
   PORT: port({
     desc: "ヘルスチェック用HTTPサーバーのポート",
     default: 3000,
+    devDefault: testOnly(0),
   }),
   AVAILABILITY_INTERVAL: num({
     desc: "オンライン状態を送信する間隔",
@@ -27,6 +40,7 @@ const env = cleanEnv(process.env, {
   AUTO_REQUEST_INTERVAL: num({
     desc: "エンティティの更新間隔",
     default: 300000,
+    devDefault: testOnly(100),
   }),
   ECHONET_GET_TIMEOUT: num({
     desc: "GET要求のタイムアウト",
@@ -36,6 +50,7 @@ const env = cleanEnv(process.env, {
   WISUN_CONNECTOR_MODEL: str({
     desc: "Wi-SUNコネクタのモデル",
     choices: WiSunConnectorModels,
+    devDefault: testOnly("BP35C2"),
   }),
   WISUN_CONNECTOR_DEVICE_PATH: str({
     desc: "Wi-SUNコネクタのデバイスパス",
@@ -47,8 +62,14 @@ const env = cleanEnv(process.env, {
     desc: "PAN情報をキャッシュするファイルパス",
     default: ".paninfo.json",
   }),
-  ROUTE_B_ID: str({ desc: "Bルート認証ID" }),
-  ROUTE_B_PASSWORD: str({ desc: "Bルートパスワード" }),
+  ROUTE_B_ID: str({
+    desc: "Bルート認証ID",
+    devDefault: testOnly("route-b-id"),
+  }),
+  ROUTE_B_PASSWORD: str({
+    desc: "Bルートパスワード",
+    devDefault: testOnly("route-b-password"),
+  }),
 });
 
 export default env;

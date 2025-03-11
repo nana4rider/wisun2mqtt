@@ -1,13 +1,10 @@
-import env from "@/env";
 import initializeHttpServer from "@/service/http";
 import { FastifyInstance } from "fastify";
-import { MutableEnv } from "jest.setup";
 
 describe("initializeHttpServer", () => {
   let server: FastifyInstance;
 
   beforeEach(async () => {
-    (env as MutableEnv).PORT = undefined;
     jest.clearAllMocks();
     server = await initializeHttpServer();
   });

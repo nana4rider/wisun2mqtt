@@ -1,3 +1,4 @@
+import env from "@/env";
 import initializeMqttClient from "@/service/mqtt";
 import mqttjs, { MqttClient } from "mqtt";
 import { setTimeout } from "timers/promises";
@@ -38,10 +39,10 @@ describe("initializeMqttClient", () => {
 
     // MQTTクライアントの接続確認
     expect(mockConnectAsync).toHaveBeenCalledWith(
-      process.env.MQTT_BROKER,
+      env.MQTT_BROKER,
       expect.objectContaining({
-        username: process.env.MQTT_USERNAME,
-        password: process.env.MQTT_PASSWORD,
+        username: env.MQTT_USERNAME,
+        password: env.MQTT_PASSWORD,
       }),
     );
   });

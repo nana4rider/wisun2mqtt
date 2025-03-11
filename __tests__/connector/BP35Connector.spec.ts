@@ -86,7 +86,10 @@ describe("setAuth", () => {
 
     await connector.setAuth(env.ROUTE_B_ID, env.ROUTE_B_PASSWORD);
 
-    expect(commands).toEqual(["SKSETRBID id", "SKSETPWD C password"]);
+    expect(commands).toEqual([
+      `SKSETRBID ${env.ROUTE_B_ID}`,
+      `SKSETPWD C ${env.ROUTE_B_PASSWORD}`,
+    ]);
   });
 });
 
