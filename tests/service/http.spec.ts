@@ -5,7 +5,7 @@ describe("initializeHttpServer", () => {
   let server: FastifyInstance;
 
   beforeEach(async () => {
-    jest.clearAllMocks();
+    vi.clearAllMocks();
     server = await initializeHttpServer();
   });
 

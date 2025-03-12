@@ -4,31 +4,36 @@ import env from "@/env";
 import logger from "@/logger";
 import setupMqttDeviceManager from "@/manager/mqttDeviceManager";
 import { buildDevice, buildEntity, buildOrigin } from "@/payload/builder";
-import initializeMqttClient from "@/service/mqtt";
+import initializeMqttClient, { MqttClient } from "@/service/mqtt";
 import { SmartMeterClient } from "@/service/smartMeter";
+import { Mock } from "vitest";
 
-jest.mock("@/payload/builder", () => ({
-  buildEntity: jest.fn(),
-  buildDevice: jest.fn(),
-  buildOrigin: jest.fn(),
+vi.mock("@/payload/builder", () => ({
+  buildEntity: vi.fn(),
+  buildDevice: vi.fn(),
+  buildOrigin: vi.fn(),
 }));
 
-jest.mock("@/service/mqtt", () => jest.fn());
+vi.mock("@/service/mqtt", () => ({
+  default: vi.fn(),
+}));
 
 describe("setupMqttDeviceManager", () => {
-  let mockMqttClient: { publish: jest.Mock };
+  let mockMqttClient: MqttClient;
 
   beforeEach(() => {
-    jest.resetAllMocks();
+    vi.resetAllMocks();
 
     mockMqttClient = {
-      publish: jest.fn(),
+      publish: vi.fn(),
+      taskQueueSize: 0,
+      close: vi.fn(),
     };
 
-    (initializeMqttClient as jest.Mock).mockResolvedValue(mockMqttClient);
-    (buildOrigin as jest.Mock).mockReturnValue({ origin: "test-origin" });
-    (buildDevice as jest.Mock).mockReturnValue({ device: "test-device" });
-    (buildEntity as jest.Mock).mockImplementation(
+    (initializeMqttClient as Mock).mockResolvedValue(mockMqttClient);
+    (buildOrigin as Mock).mockReturnValue({ origin: "test-origin" });
+    (buildDevice as Mock).mockReturnValue({ device: "test-device" });
+    (buildEntity as Mock).mockImplementation(
       (deviceId: string, entity: Entity) => ({
         unique_id: `wisun2mqtt_${deviceId}_${entity.id}`,
         name: entity.name,
@@ -37,7 +42,7 @@ describe("setupMqttDeviceManager", () => {
   });
 
   test("Home Assistantにデバイス情報が送信される", async () => {
-    const mockFetchData = jest.fn();
+    const mockFetchData = vi.fn();
     const smartMeterClient = {
       device: {
         deviceId: "deviceId",
@@ -70,7 +75,7 @@ describe("setupMqttDeviceManager", () => {
   });
 
   test("定期的な自動取得が呼び出される", async () => {
-    const mockFetchData = jest.fn();
+    const mockFetchData = vi.fn();
     const smartMeterClient = {
       device: {
         deviceId: "deviceId",
@@ -109,8 +114,8 @@ describe("setupMqttDeviceManager", () => {
   });
 
   test("エンティティに存在しないepcは無視する", async () => {
-    const mockFetchData = jest.fn();
-    const mockConverter = jest.fn();
+    const mockFetchData = vi.fn();
+    const mockConverter = vi.fn();
 
     const smartMeterClient = {
       device: {
@@ -145,8 +150,8 @@ describe("setupMqttDeviceManager", () => {
   });
 
   test("エンティティに存在するepcは更新する", async () => {
-    const mockFetchData = jest.fn();
-    const mockConverter = jest.fn().mockReturnValue("999");
+    const mockFetchData = vi.fn();
+    const mockConverter = vi.fn().mockReturnValue("999");
 
     const smartMeterClient = {
       device: {
@@ -188,8 +193,8 @@ describe("setupMqttDeviceManager", () => {
   });
 
   test("自動リクエスト中にエラーが発生した場合ログに記録される", async () => {
-    const mockFetchData = jest.fn();
-    const mockConverter = jest.fn().mockReturnValue("999");
+    const mockFetchData = vi.fn();
+    const mockConverter = vi.fn().mockReturnValue("999");
 
     const smartMeterClient = {
       device: {
@@ -209,7 +214,7 @@ describe("setupMqttDeviceManager", () => {
     } as unknown as SmartMeterClient;
     mockFetchData.mockRejectedValue(new Error("test error"));
 
-    const logErrorSpy = jest.spyOn(logger, "warn");
+    const logErrorSpy = vi.spyOn(logger, "warn");
     const { stopAutoRequest } = await setupMqttDeviceManager(smartMeterClient);
     await stopAutoRequest();
 

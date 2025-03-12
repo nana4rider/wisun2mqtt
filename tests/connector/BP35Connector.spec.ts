@@ -7,11 +7,11 @@ import { SerialPortStream } from "@serialport/stream";
 import assert from "assert";
 import * as serialport from "serialport";
 
-jest.mock("serialport", () => {
-  const actual = jest.requireActual<typeof serialport>("serialport");
+vi.mock("serialport", async () => {
+  const actual = await vi.importActual<typeof serialport>("serialport");
   return {
     ...actual,
-    SerialPort: jest
+    SerialPort: vi
       .fn()
       .mockImplementation(
         ({
@@ -228,7 +228,7 @@ describe("close", () => {
 
     await new Promise((resolve) => mockPort.on("open", resolve));
 
-    const closeSpy = jest.fn();
+    const closeSpy = vi.fn();
     mockPort.on("close", closeSpy);
 
     await connector.close();
@@ -339,7 +339,7 @@ describe("sendEchonetLite", () => {
 
 describe("setupSerialEventHandlers", () => {
   test("引数なしのテキストコマンドをデバッグログ出力する", async () => {
-    const logDebugSpy = jest.spyOn(logger, "debug");
+    const logDebugSpy = vi.spyOn(logger, "debug");
 
     const connector = createConnector();
     const { serialPort: mockPort, parser: mockParser } = connector;
@@ -358,7 +358,7 @@ describe("setupSerialEventHandlers", () => {
   });
 
   test("引数ありのテキストコマンドをデバッグログ出力する", async () => {
-    const logDebugSpy = jest.spyOn(logger, "debug");
+    const logDebugSpy = vi.spyOn(logger, "debug");
 
     const connector = createConnector();
     const { serialPort: mockPort, parser: mockParser } = connector;
@@ -377,7 +377,7 @@ describe("setupSerialEventHandlers", () => {
   });
 
   test("不正なERXUDPを受け取った場合エラーログを出力", async () => {
-    const logErrorSpy = jest.spyOn(logger, "error");
+    const logErrorSpy = vi.spyOn(logger, "error");
 
     const connector = createConnector();
     const { serialPort: mockPort, parser: mockParser } = connector;
@@ -398,7 +398,7 @@ describe("setupSerialEventHandlers", () => {
   });
 
   test("3610ポート以外のメッセージを受け取った場合ログを出力", async () => {
-    const logInfoSpy = jest.spyOn(logger, "info");
+    const logInfoSpy = vi.spyOn(logger, "info");
 
     const connector = createConnector();
     const { serialPort: mockPort, parser: mockParser } = connector;
@@ -422,7 +422,7 @@ describe("setupSerialEventHandlers", () => {
   });
 
   test("ヘッダが0x1081以外のメッセージを受け取った場合ログを出力", async () => {
-    const logInfoSpy = jest.spyOn(logger, "info");
+    const logInfoSpy = vi.spyOn(logger, "info");
 
     const connector = createConnector();
     const { serialPort: mockPort, parser: mockParser } = connector;
@@ -485,7 +485,7 @@ describe("setupSerialEventHandlers", () => {
       }
     });
 
-    const messageSpy = jest.fn();
+    const messageSpy = vi.fn();
     connector.on("message", messageSpy);
 
     const sendPromise = connector.sendCommand("SKSENDTO xxxx", (data) =>
@@ -499,7 +499,7 @@ describe("setupSerialEventHandlers", () => {
   });
 
   test("シリアル通信でエラーが発生したときエラーログに出力する", () => {
-    const logErrorSpy = jest.spyOn(logger, "error");
+    const logErrorSpy = vi.spyOn(logger, "error");
 
     const connector = createConnector();
     const { serialPort: mockPort } = connector;

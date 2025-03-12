@@ -9,13 +9,14 @@ import fileExists from "file-exists";
 import * as fsPromises from "fs/promises";
 import { pEvent } from "p-event";
 import { Writable } from "type-fest";
+import { Mock } from "vitest";
 
-const mockOn = jest.fn();
-const mockSetAuth = jest.fn();
-const mockScan = jest.fn();
-const mockJoin = jest.fn();
-const mockSendEchonetLite = jest.fn();
-const mockClose = jest.fn();
+const mockOn = vi.fn();
+const mockSetAuth = vi.fn();
+const mockScan = vi.fn();
+const mockJoin = vi.fn();
+const mockSendEchonetLite = vi.fn();
+const mockClose = vi.fn();
 const mockWiSunConnector: WiSunConnector = {
   on: mockOn,
   setAuth: mockSetAuth,
@@ -25,27 +26,18 @@ const mockWiSunConnector: WiSunConnector = {
   close: mockClose,
 };
 
-jest.mock("@/connector/WiSunConnector", () => ({
-  __esModule: true,
+vi.mock("@/connector/WiSunConnector", () => ({
   default: () => mockWiSunConnector,
 }));
 
-jest.mock("file-exists", () => ({
-  __esModule: true,
-  default: jest.fn(),
+vi.mock("file-exists", () => ({
+  default: vi.fn(),
 }));
 
-jest.mock("fs/promises", () => {
-  const actual = jest.requireActual<typeof fsPromises>("fs/promises");
-  return {
-    ...actual,
-    readFile: jest.fn(),
-    writeFile: jest.fn(),
-  };
-});
+vi.mock("node:fs/promises");
 
-jest.mock("p-event", () => ({
-  pEvent: jest.fn(),
+vi.mock("p-event", () => ({
+  pEvent: vi.fn(),
 }));
 
 const mockPanInfo: PanInfo = {
@@ -60,12 +52,12 @@ const mockPanInfo: PanInfo = {
 
 beforeEach(() => {
   (env as Writable<typeof env>).ECHONET_GET_RETRIES = 0;
-  jest.resetAllMocks();
+  vi.resetAllMocks();
 });
 
 describe("initializeWiSunConnector", () => {
   test("接続成功時、WiSunConnectorとPanInfoを返す", async () => {
-    (fileExists as unknown as jest.Mock).mockResolvedValue(false);
+    (fileExists as unknown as Mock).mockResolvedValue(false);
     mockScan.mockResolvedValue(mockPanInfo);
 
     const { wiSunConnector, panInfo } = await initializeWiSunConnector();
@@ -81,7 +73,7 @@ describe("initializeWiSunConnector", () => {
   });
 
   test("接続成功時、Pan情報がキャッシュされる", async () => {
-    (fileExists as unknown as jest.Mock).mockResolvedValue(false);
+    (fileExists as unknown as Mock).mockResolvedValue(false);
     mockScan.mockResolvedValue(mockPanInfo);
 
     const { panInfo } = await initializeWiSunConnector();
@@ -93,8 +85,8 @@ describe("initializeWiSunConnector", () => {
   });
 
   test("キャッシュされたPan情報で接続に成功するとスキャンしない", async () => {
-    (fileExists as unknown as jest.Mock).mockResolvedValue(true);
-    (fsPromises.readFile as jest.Mock).mockResolvedValue(
+    (fileExists as unknown as Mock).mockResolvedValue(true);
+    (fsPromises.readFile as Mock).mockResolvedValue(
       JSON.stringify(mockPanInfo),
     );
 
@@ -106,8 +98,8 @@ describe("initializeWiSunConnector", () => {
   });
 
   test("キャッシュされたPan情報で接続に失敗するとスキャンしてjoinを試みる", async () => {
-    (fileExists as unknown as jest.Mock).mockResolvedValue(true);
-    (fsPromises.readFile as jest.Mock).mockResolvedValue(
+    (fileExists as unknown as Mock).mockResolvedValue(true);
+    (fsPromises.readFile as Mock).mockResolvedValue(
       JSON.stringify({ invalid: "panInfo" }),
     );
     mockJoin.mockRejectedValueOnce(new Error("join failed"));
@@ -130,17 +122,16 @@ describe("initializeWiSunConnector", () => {
   });
 
   test("WiSunConnectorのエラーイベントが発火されたとき、エラーログを出力する", async () => {
-    (fileExists as unknown as jest.Mock).mockResolvedValue(true);
-    (fsPromises.readFile as jest.Mock).mockResolvedValue(
+    (fileExists as unknown as Mock).mockResolvedValue(true);
+    (fsPromises.readFile as Mock).mockResolvedValue(
       JSON.stringify(mockPanInfo),
     );
-    const logErrorSpy = jest.spyOn(logger, "error");
+    const logErrorSpy = vi.spyOn(logger, "error");
     await initializeWiSunConnector();
 
     const handleError = (
-      mockOn as jest.Mock<
-        WiSunConnector,
-        [event: "error", listener: (err: Error) => void]
+      mockOn as Mock<
+        (event: "error", listener: (err: Error) => void) => WiSunConnector
       >
     ).mock.calls[0][1];
     handleError(new Error("on error"));
@@ -154,9 +145,9 @@ describe("initializeWiSunConnector", () => {
 
 describe("initializeSmartMeterClient", () => {
   beforeEach(() => {
-    jest.resetAllMocks();
+    vi.resetAllMocks();
     // initializeWiSunConnector
-    (fileExists as unknown as jest.Mock).mockResolvedValue(false);
+    (fileExists as unknown as Mock).mockResolvedValue(false);
     mockScan.mockResolvedValue(mockPanInfo);
   });
 
@@ -173,10 +164,10 @@ describe("initializeSmartMeterClient", () => {
       ],
     }).toBuffer();
 
-    const mockPEvent = pEvent as unknown as jest.Mock;
+    const mockPEvent = pEvent as unknown as Mock;
 
     // tid固定
-    jest.spyOn(Math, "random").mockReturnValue(0);
+    vi.spyOn(Math, "random").mockReturnValue(0);
 
     mockPEvent.mockResolvedValue(mockResponseBuffer);
 
@@ -263,10 +254,10 @@ describe("initializeSmartMeterClient", () => {
       ],
     }).toBuffer();
 
-    const mockPEvent = pEvent as unknown as jest.Mock;
+    const mockPEvent = pEvent as unknown as Mock;
 
     // tid固定
-    jest.spyOn(Math, "random").mockReturnValue(0);
+    vi.spyOn(Math, "random").mockReturnValue(0);
 
     mockPEvent.mockResolvedValue(mockResponseBuffer);
 
@@ -297,17 +288,16 @@ describe("initializeSmartMeterClient", () => {
       properties: [],
     }).toBuffer();
 
-    const mockPEvent = pEvent as unknown as jest.Mock<
-      Promise<void>,
-      [
+    const mockPEvent = pEvent as unknown as Mock<
+      (
         connector: WiSunConnector,
         event: string,
         options: { filter: (frame: Buffer) => boolean },
-      ]
+      ) => Promise<void>
     >;
 
     // tid固定
-    jest.spyOn(Math, "random").mockReturnValue(0);
+    vi.spyOn(Math, "random").mockReturnValue(0);
 
     let actual;
     mockPEvent.mockImplementation(() => {
@@ -334,10 +324,10 @@ describe("initializeSmartMeterClient", () => {
       properties: [],
     }).toBuffer();
 
-    const mockPEvent = pEvent as unknown as jest.Mock;
+    const mockPEvent = pEvent as unknown as Mock;
 
     // tid固定
-    jest.spyOn(Math, "random").mockReturnValue(0);
+    vi.spyOn(Math, "random").mockReturnValue(0);
 
     mockPEvent.mockResolvedValue(mockResponseBuffer);
 
@@ -356,10 +346,10 @@ describe("initializeSmartMeterClient", () => {
       properties: [],
     }).toBuffer();
 
-    const mockPEvent = pEvent as unknown as jest.Mock;
+    const mockPEvent = pEvent as unknown as Mock;
 
     // tid固定
-    jest.spyOn(Math, "random").mockReturnValue(0);
+    vi.spyOn(Math, "random").mockReturnValue(0);
 
     mockPEvent.mockResolvedValue(mockResponseBuffer);
 
@@ -382,10 +372,10 @@ describe("initializeSmartMeterClient", () => {
       ],
     }).toBuffer();
 
-    const mockPEvent = pEvent as unknown as jest.Mock;
+    const mockPEvent = pEvent as unknown as Mock;
 
     // tid固定
-    jest.spyOn(Math, "random").mockReturnValue(0);
+    vi.spyOn(Math, "random").mockReturnValue(0);
 
     mockPEvent.mockResolvedValue(mockResponseBuffer);
 
@@ -411,10 +401,10 @@ describe("initializeSmartMeterClient", () => {
       ],
     }).toBuffer();
 
-    const mockPEvent = pEvent as unknown as jest.Mock;
+    const mockPEvent = pEvent as unknown as Mock;
 
     // tid固定
-    jest.spyOn(Math, "random").mockReturnValue(0);
+    vi.spyOn(Math, "random").mockReturnValue(0);
 
     mockPEvent.mockResolvedValue(mockResponseBuffer);
 
