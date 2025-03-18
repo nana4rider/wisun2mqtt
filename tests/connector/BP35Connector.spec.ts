@@ -38,23 +38,25 @@ const mockPanInfo: PanInfo = {
   PairID: "00001234",
 };
 
+type PublicWiSunConnector = WiSunConnector & {
+  serialPort: serialport.SerialPort;
+  parser: serialport.ReadlineParser;
+  scanInternal: () => Promise<PanInfo | undefined>;
+  ipv6Address: string;
+  sendCommand: (
+    command: string | Buffer,
+    expected?: (data: string) => boolean,
+    timeout?: number,
+  ) => Promise<string[]>;
+};
+
 function createConnector(suportSide = true) {
   const devicePath = "/dev/test";
   MockBinding.createPort(devicePath, { echo: true, record: true });
   const connector = new BP35Connector(
     devicePath,
     suportSide ? 0 : undefined,
-  ) as unknown as WiSunConnector & {
-    serialPort: serialport.SerialPort;
-    parser: serialport.ReadlineParser;
-    scanInternal: () => Promise<PanInfo | undefined>;
-    ipv6Address: string;
-    sendCommand: (
-      command: string | Buffer,
-      expected?: (data: string) => boolean,
-      timeout?: number,
-    ) => Promise<string[]>;
-  };
+  ) as unknown as PublicWiSunConnector;
   return connector;
 }
 

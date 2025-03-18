@@ -6,7 +6,6 @@ import setupMqttDeviceManager from "@/manager/mqttDeviceManager";
 import { buildDevice, buildEntity, buildOrigin } from "@/payload/builder";
 import initializeMqttClient, { MqttClient } from "@/service/mqtt";
 import { SmartMeterClient } from "@/service/smartMeter";
-import { Mock } from "vitest";
 
 vi.mock("@/payload/builder", () => ({
   buildEntity: vi.fn(),
@@ -19,21 +18,19 @@ vi.mock("@/service/mqtt", () => ({
 }));
 
 describe("setupMqttDeviceManager", () => {
-  let mockMqttClient: MqttClient;
+  const mockMqttClient: MqttClient = {
+    publish: vi.fn(),
+    taskQueueSize: 0,
+    close: vi.fn(),
+  };
 
   beforeEach(() => {
     vi.resetAllMocks();
 
-    mockMqttClient = {
-      publish: vi.fn(),
-      taskQueueSize: 0,
-      close: vi.fn(),
-    };
-
-    (initializeMqttClient as Mock).mockResolvedValue(mockMqttClient);
-    (buildOrigin as Mock).mockReturnValue({ origin: "test-origin" });
-    (buildDevice as Mock).mockReturnValue({ device: "test-device" });
-    (buildEntity as Mock).mockImplementation(
+    vi.mocked(initializeMqttClient).mockResolvedValue(mockMqttClient);
+    vi.mocked(buildOrigin).mockReturnValue({ origin: "test-origin" });
+    vi.mocked(buildDevice).mockReturnValue({ device: "test-device" });
+    vi.mocked(buildEntity).mockImplementation(
       (deviceId: string, entity: Entity) => ({
         unique_id: `wisun2mqtt_${deviceId}_${entity.id}`,
         name: entity.name,
@@ -42,8 +39,7 @@ describe("setupMqttDeviceManager", () => {
   });
 
   test("Home Assistantにデバイス情報が送信される", async () => {
-    const mockFetchData = vi.fn();
-    const smartMeterClient = {
+    const mockSmartMeterClient: Partial<SmartMeterClient> = {
       device: {
         deviceId: "deviceId",
         manufacturer: "manufacturer",
@@ -52,14 +48,18 @@ describe("setupMqttDeviceManager", () => {
             id: "entity1",
             name: "name1",
             domain: "sensor",
+            deviceClass: "running",
+            epc: 0x88,
+            converter: vi.fn(),
           },
         ],
       },
-      fetchData: mockFetchData,
-    } as unknown as SmartMeterClient;
-    mockFetchData.mockResolvedValue([]);
+      fetchData: vi.fn().mockResolvedValue([]),
+    };
 
-    const { stopAutoRequest } = await setupMqttDeviceManager(smartMeterClient);
+    const { stopAutoRequest } = await setupMqttDeviceManager(
+      mockSmartMeterClient as SmartMeterClient,
+    );
     await stopAutoRequest();
 
     expect(mockMqttClient.publish).toHaveBeenCalledWith(
@@ -75,8 +75,7 @@ describe("setupMqttDeviceManager", () => {
   });
 
   test("定期的な自動取得が呼び出される", async () => {
-    const mockFetchData = vi.fn();
-    const smartMeterClient = {
+    const mockSmartMeterClient: Partial<SmartMeterClient> = {
       device: {
         deviceId: "deviceId",
         manufacturer: "manufacturer",
@@ -85,39 +84,43 @@ describe("setupMqttDeviceManager", () => {
             id: "entity1",
             name: "name1",
             domain: "sensor",
+            deviceClass: "running",
             epc: 0x88,
+            converter: vi.fn(),
           },
           {
             id: "entity2",
             name: "name2",
             domain: "sensor",
+            deviceClass: "running",
             epc: 0x99,
+            converter: vi.fn(),
           },
-        ] as Entity[],
+        ],
       },
-      fetchData: mockFetchData,
-    } as unknown as SmartMeterClient;
-    mockFetchData.mockResolvedValue(
-      EchonetData.create({
-        seoj: 0x05ff01,
-        deoj: 0x028801,
-        esv: 0x62,
-        tid: 0x99,
-        properties: [],
-      }),
-    );
+      fetchData: vi.fn().mockResolvedValue(
+        EchonetData.create({
+          seoj: 0x05ff01,
+          deoj: 0x028801,
+          esv: 0x62,
+          tid: 0x99,
+          properties: [],
+        }),
+      ),
+    };
 
-    const { stopAutoRequest } = await setupMqttDeviceManager(smartMeterClient);
+    const { stopAutoRequest } = await setupMqttDeviceManager(
+      mockSmartMeterClient as SmartMeterClient,
+    );
     await stopAutoRequest();
 
-    expect(mockFetchData).toHaveBeenCalledWith([0x88, 0x99]);
+    expect(mockSmartMeterClient.fetchData).toHaveBeenCalledWith([0x88, 0x99]);
   });
 
   test("エンティティに存在しないepcは無視する", async () => {
-    const mockFetchData = vi.fn();
     const mockConverter = vi.fn();
 
-    const smartMeterClient = {
+    const mockSmartMeterClient: Partial<SmartMeterClient> = {
       device: {
         deviceId: "deviceId",
         manufacturer: "manufacturer",
@@ -126,34 +129,35 @@ describe("setupMqttDeviceManager", () => {
             id: "entity1",
             name: "name1",
             domain: "sensor",
+            deviceClass: "running",
             epc: 0x88,
             converter: mockConverter,
           },
-        ] as unknown as Entity[],
+        ],
       },
-      fetchData: mockFetchData,
-    } as unknown as SmartMeterClient;
-    mockFetchData.mockResolvedValue(
-      EchonetData.create({
-        seoj: 0x05ff01,
-        deoj: 0x028801,
-        esv: 0x62,
-        tid: 0x99,
-        properties: [{ epc: 0xff }],
-      }),
-    );
+      fetchData: vi.fn().mockResolvedValue(
+        EchonetData.create({
+          seoj: 0x05ff01,
+          deoj: 0x028801,
+          esv: 0x62,
+          tid: 0x99,
+          properties: [{ epc: 0xff }],
+        }),
+      ),
+    };
 
-    const { stopAutoRequest } = await setupMqttDeviceManager(smartMeterClient);
+    const { stopAutoRequest } = await setupMqttDeviceManager(
+      mockSmartMeterClient as SmartMeterClient,
+    );
     await stopAutoRequest();
 
     expect(mockConverter).not.toHaveBeenCalled();
   });
 
   test("エンティティに存在するepcは更新する", async () => {
-    const mockFetchData = vi.fn();
     const mockConverter = vi.fn().mockReturnValue("999");
 
-    const smartMeterClient = {
+    const mockSmartMeterClient: Partial<SmartMeterClient> = {
       device: {
         deviceId: "deviceId",
         manufacturer: "manufacturer",
@@ -162,24 +166,26 @@ describe("setupMqttDeviceManager", () => {
             id: "entity1",
             name: "name1",
             domain: "sensor",
+            deviceClass: "running",
             epc: 0x88,
             converter: mockConverter,
           },
-        ] as unknown as Entity[],
+        ],
       },
-      fetchData: mockFetchData,
-    } as unknown as SmartMeterClient;
-    mockFetchData.mockResolvedValue(
-      EchonetData.create({
-        seoj: 0x05ff01,
-        deoj: 0x028801,
-        esv: 0x62,
-        tid: 0x99,
-        properties: [{ epc: 0x88 }],
-      }),
-    );
+      fetchData: vi.fn().mockResolvedValue(
+        EchonetData.create({
+          seoj: 0x05ff01,
+          deoj: 0x028801,
+          esv: 0x62,
+          tid: 0x99,
+          properties: [{ epc: 0x88 }],
+        }),
+      ),
+    };
 
-    const { stopAutoRequest } = await setupMqttDeviceManager(smartMeterClient);
+    const { stopAutoRequest } = await setupMqttDeviceManager(
+      mockSmartMeterClient as SmartMeterClient,
+    );
     await stopAutoRequest();
 
     expect(mockConverter).toHaveBeenCalled();
@@ -193,10 +199,9 @@ describe("setupMqttDeviceManager", () => {
   });
 
   test("自動リクエスト中にエラーが発生した場合ログに記録される", async () => {
-    const mockFetchData = vi.fn();
     const mockConverter = vi.fn().mockReturnValue("999");
 
-    const smartMeterClient = {
+    const mockSmartMeterClient: Partial<SmartMeterClient> = {
       device: {
         deviceId: "deviceId",
         manufacturer: "manufacturer",
@@ -205,17 +210,19 @@ describe("setupMqttDeviceManager", () => {
             id: "entity1",
             name: "name1",
             domain: "sensor",
+            deviceClass: "running",
             epc: 0x88,
             converter: mockConverter,
           },
-        ] as unknown as Entity[],
+        ],
       },
-      fetchData: mockFetchData,
-    } as unknown as SmartMeterClient;
-    mockFetchData.mockRejectedValue(new Error("test error"));
+      fetchData: vi.fn().mockRejectedValue(new Error("test error")),
+    };
 
     const logErrorSpy = vi.spyOn(logger, "warn");
-    const { stopAutoRequest } = await setupMqttDeviceManager(smartMeterClient);
+    const { stopAutoRequest } = await setupMqttDeviceManager(
+      mockSmartMeterClient as SmartMeterClient,
+    );
     await stopAutoRequest();
 
     expect(logErrorSpy).toHaveBeenCalledWith(

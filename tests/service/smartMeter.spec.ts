@@ -5,25 +5,21 @@ import logger from "@/logger";
 import initializeSmartMeterClient, {
   initializeWiSunConnector,
 } from "@/service/smartMeter";
+import assert from "assert";
 import fileExists from "file-exists";
-import * as fsPromises from "fs/promises";
-import { pEvent } from "p-event";
+import { readFile, writeFile } from "fs/promises";
+import { CancelablePromise, pEvent } from "p-event";
 import { Writable } from "type-fest";
-import { Mock } from "vitest";
 
-const mockOn = vi.fn();
-const mockSetAuth = vi.fn();
-const mockScan = vi.fn();
-const mockJoin = vi.fn();
-const mockSendEchonetLite = vi.fn();
-const mockClose = vi.fn();
+const writableEnv: Writable<typeof env> = env;
+
 const mockWiSunConnector: WiSunConnector = {
-  on: mockOn,
-  setAuth: mockSetAuth,
-  scan: mockScan,
-  join: mockJoin,
-  sendEchonetLite: mockSendEchonetLite,
-  close: mockClose,
+  on: vi.fn(),
+  setAuth: vi.fn(),
+  scan: vi.fn(),
+  join: vi.fn(),
+  sendEchonetLite: vi.fn(),
+  close: vi.fn(),
 };
 
 vi.mock("@/connector/WiSunConnector", () => ({
@@ -51,89 +47,94 @@ const mockPanInfo: PanInfo = {
 };
 
 beforeEach(() => {
-  (env as Writable<typeof env>).ECHONET_GET_RETRIES = 0;
   vi.resetAllMocks();
 });
 
+function implementFileExists(exists: boolean) {
+  vi.mocked<(filepath: string) => Promise<boolean>>(
+    fileExists,
+  ).mockResolvedValue(exists);
+}
+
 describe("initializeWiSunConnector", () => {
   test("接続成功時、WiSunConnectorとPanInfoを返す", async () => {
-    (fileExists as unknown as Mock).mockResolvedValue(false);
-    mockScan.mockResolvedValue(mockPanInfo);
+    implementFileExists(false);
+    vi.mocked(mockWiSunConnector.scan).mockResolvedValue(mockPanInfo);
 
     const { wiSunConnector, panInfo } = await initializeWiSunConnector();
 
-    expect(mockSetAuth).toHaveBeenCalledWith(
+    expect(mockWiSunConnector.setAuth).toHaveBeenCalledWith(
       env.ROUTE_B_ID,
       env.ROUTE_B_PASSWORD,
     );
-    expect(mockScan).toHaveBeenCalledWith(env.WISUN_SCAN_RETRIES);
-    expect(mockJoin).toHaveBeenCalledWith(mockPanInfo);
+    expect(mockWiSunConnector.scan).toHaveBeenCalledWith(
+      env.WISUN_SCAN_RETRIES,
+    );
+    expect(mockWiSunConnector.join).toHaveBeenCalledWith(mockPanInfo);
     expect(wiSunConnector).toEqual(mockWiSunConnector);
     expect(panInfo).toEqual(mockPanInfo);
   });
 
   test("接続成功時、Pan情報がキャッシュされる", async () => {
-    (fileExists as unknown as Mock).mockResolvedValue(false);
-    mockScan.mockResolvedValue(mockPanInfo);
+    implementFileExists(false);
+    vi.mocked(mockWiSunConnector.scan).mockResolvedValue(mockPanInfo);
 
     const { panInfo } = await initializeWiSunConnector();
 
-    expect(fsPromises.writeFile).toHaveBeenCalledWith(
+    expect(writeFile).toHaveBeenCalledWith(
       env.PAN_INFO_PATH,
       JSON.stringify(panInfo),
     );
   });
 
   test("キャッシュされたPan情報で接続に成功するとスキャンしない", async () => {
-    (fileExists as unknown as Mock).mockResolvedValue(true);
-    (fsPromises.readFile as Mock).mockResolvedValue(
-      JSON.stringify(mockPanInfo),
-    );
+    implementFileExists(true);
+    vi.mocked(readFile).mockResolvedValue(JSON.stringify(mockPanInfo));
 
     await initializeWiSunConnector();
 
-    expect(mockScan).not.toHaveBeenCalled();
-    expect(mockJoin).toHaveBeenCalledTimes(1);
-    expect(mockJoin).toHaveBeenCalledWith(mockPanInfo);
+    expect(mockWiSunConnector.scan).not.toHaveBeenCalled();
+    expect(mockWiSunConnector.join).toHaveBeenCalledTimes(1);
+    expect(mockWiSunConnector.join).toHaveBeenCalledWith(mockPanInfo);
   });
 
   test("キャッシュされたPan情報で接続に失敗するとスキャンしてjoinを試みる", async () => {
-    (fileExists as unknown as Mock).mockResolvedValue(true);
-    (fsPromises.readFile as Mock).mockResolvedValue(
+    implementFileExists(true);
+    vi.mocked(readFile).mockResolvedValue(
       JSON.stringify({ invalid: "panInfo" }),
     );
-    mockJoin.mockRejectedValueOnce(new Error("join failed"));
-    mockScan.mockResolvedValue(mockPanInfo);
+    vi.mocked(mockWiSunConnector.join).mockRejectedValueOnce(
+      new Error("join failed"),
+    );
+    vi.mocked(mockWiSunConnector.scan).mockResolvedValue(mockPanInfo);
 
     await initializeWiSunConnector();
 
-    expect(mockJoin).toHaveBeenCalledTimes(2);
-    expect(mockScan).toHaveBeenCalledTimes(1);
-    expect(fsPromises.writeFile).toHaveBeenCalled();
+    expect(mockWiSunConnector.join).toHaveBeenCalledTimes(2);
+    expect(mockWiSunConnector.scan).toHaveBeenCalledTimes(1);
+    expect(writeFile).toHaveBeenCalled();
   });
 
   test("接続処理中に致命的な問題が発生するとコネクションをクローズする", async () => {
-    mockSetAuth.mockRejectedValue(new Error("setAuth error"));
+    vi.mocked(mockWiSunConnector.setAuth).mockRejectedValue(
+      new Error("setAuth error"),
+    );
 
     const actual = initializeWiSunConnector();
 
     await expect(actual).rejects.toThrow();
-    expect(mockClose).toHaveBeenCalled();
+    expect(mockWiSunConnector.close).toHaveBeenCalled();
   });
 
   test("WiSunConnectorのエラーイベントが発火されたとき、エラーログを出力する", async () => {
-    (fileExists as unknown as Mock).mockResolvedValue(true);
-    (fsPromises.readFile as Mock).mockResolvedValue(
-      JSON.stringify(mockPanInfo),
-    );
+    implementFileExists(true);
+    vi.mocked(readFile).mockResolvedValue(JSON.stringify(mockPanInfo));
     const logErrorSpy = vi.spyOn(logger, "error");
-    await initializeWiSunConnector();
+    const { wiSunConnector } = await initializeWiSunConnector();
 
-    const handleError = (
-      mockOn as Mock<
-        (event: "error", listener: (err: Error) => void) => WiSunConnector
-      >
-    ).mock.calls[0][1];
+    const handleError = vi.mocked<
+      (event: "error", listener: (err: Error) => void) => WiSunConnector
+    >(wiSunConnector.on).mock.calls[0][1];
     handleError(new Error("on error"));
 
     expect(logErrorSpy).toHaveBeenCalledWith(
@@ -145,10 +146,12 @@ describe("initializeWiSunConnector", () => {
 
 describe("initializeSmartMeterClient", () => {
   beforeEach(() => {
-    vi.resetAllMocks();
+    writableEnv.ECHONET_GET_RETRIES = 0;
     // initializeWiSunConnector
-    (fileExists as unknown as Mock).mockResolvedValue(false);
-    mockScan.mockResolvedValue(mockPanInfo);
+    implementFileExists(false);
+    vi.mocked(mockWiSunConnector.scan).mockResolvedValue(mockPanInfo);
+    // tid固定
+    vi.spyOn(Math, "random").mockReturnValue(0);
   });
 
   test("必要なエンティティが作成される", async () => {
@@ -164,12 +167,7 @@ describe("initializeSmartMeterClient", () => {
       ],
     }).toBuffer();
 
-    const mockPEvent = pEvent as unknown as Mock;
-
-    // tid固定
-    vi.spyOn(Math, "random").mockReturnValue(0);
-
-    mockPEvent.mockResolvedValue(mockResponseBuffer);
+    vi.mocked(pEvent).mockResolvedValue(mockResponseBuffer);
 
     const { device } = await initializeSmartMeterClient();
     expect(device.deviceId).toBe("smartMeter_0000111122223333");
@@ -254,12 +252,7 @@ describe("initializeSmartMeterClient", () => {
       ],
     }).toBuffer();
 
-    const mockPEvent = pEvent as unknown as Mock;
-
-    // tid固定
-    vi.spyOn(Math, "random").mockReturnValue(0);
-
-    mockPEvent.mockResolvedValue(mockResponseBuffer);
+    vi.mocked(pEvent).mockResolvedValue(mockResponseBuffer);
 
     const { device } = await initializeSmartMeterClient();
     // 動作状態
@@ -288,30 +281,17 @@ describe("initializeSmartMeterClient", () => {
       properties: [],
     }).toBuffer();
 
-    const mockPEvent = pEvent as unknown as Mock<
-      (
-        connector: WiSunConnector,
-        event: string,
-        options: { filter: (frame: Buffer) => boolean },
-      ) => Promise<void>
-    >;
-
-    // tid固定
-    vi.spyOn(Math, "random").mockReturnValue(0);
-
     let actual;
-    mockPEvent.mockImplementation(() => {
-      const option = mockPEvent.mock.calls[0][2];
+    vi.mocked(pEvent).mockImplementation(() => {
+      const option = vi.mocked(pEvent).mock.calls[0][2];
+      assert(typeof option?.filter === "function");
       actual = option.filter(mockResponseBuffer);
-      return Promise.resolve();
+      return Promise.resolve() as CancelablePromise<void>;
     });
 
-    try {
-      await initializeSmartMeterClient();
-    } catch (_) {
-      // アサーションは無視する
-    }
+    const promiseInitialize = initializeSmartMeterClient();
 
+    await expect(promiseInitialize).rejects.toThrow();
     expect(actual).toBe(false);
   });
 
@@ -324,12 +304,7 @@ describe("initializeSmartMeterClient", () => {
       properties: [],
     }).toBuffer();
 
-    const mockPEvent = pEvent as unknown as Mock;
-
-    // tid固定
-    vi.spyOn(Math, "random").mockReturnValue(0);
-
-    mockPEvent.mockResolvedValue(mockResponseBuffer);
+    vi.mocked(pEvent).mockResolvedValue(mockResponseBuffer);
 
     const actual = initializeSmartMeterClient();
 
@@ -337,7 +312,7 @@ describe("initializeSmartMeterClient", () => {
   });
 
   test("GET要求に対しての返信がエラーの場合、指定回数リトライされる", async () => {
-    (env as Writable<typeof env>).ECHONET_GET_RETRIES = 2;
+    writableEnv.ECHONET_GET_RETRIES = 2;
     const mockResponseBuffer = EchonetData.create({
       seoj: 0x028801,
       deoj: 0x05ff01,
@@ -346,17 +321,12 @@ describe("initializeSmartMeterClient", () => {
       properties: [],
     }).toBuffer();
 
-    const mockPEvent = pEvent as unknown as Mock;
-
-    // tid固定
-    vi.spyOn(Math, "random").mockReturnValue(0);
-
-    mockPEvent.mockResolvedValue(mockResponseBuffer);
+    vi.mocked(pEvent).mockResolvedValue(mockResponseBuffer);
 
     const actual = initializeSmartMeterClient();
 
     await expect(actual).rejects.toThrow();
-    expect(mockPEvent).toHaveBeenCalledTimes(3);
+    expect(pEvent).toHaveBeenCalledTimes(3);
   });
 
   test("Pan情報のAddrがない場合に例外をスローする", async () => {
@@ -372,17 +342,14 @@ describe("initializeSmartMeterClient", () => {
       ],
     }).toBuffer();
 
-    const mockPEvent = pEvent as unknown as Mock;
-
-    // tid固定
-    vi.spyOn(Math, "random").mockReturnValue(0);
-
-    mockPEvent.mockResolvedValue(mockResponseBuffer);
-
-    mockScan.mockClear().mockResolvedValue({
-      ...mockPanInfo,
-      Addr: undefined,
-    });
+    vi.mocked(pEvent).mockResolvedValue(mockResponseBuffer);
+    vi.mocked(mockWiSunConnector.scan)
+      .mockClear()
+      .mockImplementation(() => {
+        const removedAddrPanInfo = { ...mockPanInfo };
+        delete removedAddrPanInfo["Addr"];
+        return Promise.resolve(removedAddrPanInfo);
+      });
 
     const actual = initializeSmartMeterClient();
     await expect(actual).rejects.toThrow("paninfo[Addr] is empty.");
@@ -401,12 +368,7 @@ describe("initializeSmartMeterClient", () => {
       ],
     }).toBuffer();
 
-    const mockPEvent = pEvent as unknown as Mock;
-
-    // tid固定
-    vi.spyOn(Math, "random").mockReturnValue(0);
-
-    mockPEvent.mockResolvedValue(mockResponseBuffer);
+    vi.mocked(pEvent).mockResolvedValue(mockResponseBuffer);
 
     const { close } = await initializeSmartMeterClient();
     await close();

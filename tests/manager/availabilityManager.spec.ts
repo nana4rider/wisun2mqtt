@@ -4,20 +4,18 @@ import { MqttClient } from "@/service/mqtt";
 
 describe("setupAvailability", () => {
   const deviceId = "deviceId1";
-  let mockMqttClient: MqttClient;
-  let entities: Entity[];
+  const mockMqttClient: MqttClient = {
+    publish: vi.fn(),
+    taskQueueSize: 0,
+    close: vi.fn(),
+  };
+  const entities = [
+    { id: "entity1", name: "Entity 1" },
+    { id: "entity2", name: "Entity 2" },
+  ] as Entity[];
 
   beforeEach(() => {
-    mockMqttClient = {
-      publish: vi.fn(),
-      taskQueueSize: 0,
-      close: vi.fn(),
-    };
-
-    entities = [
-      { id: "entity1", name: "Entity 1" },
-      { id: "entity2", name: "Entity 2" },
-    ] as Entity[];
+    vi.resetAllMocks();
   });
 
   afterEach(() => {

@@ -2,13 +2,10 @@ import env from "@/env";
 import initializeMqttClient from "@/service/mqtt";
 import mqttjs, { MqttClient } from "mqtt";
 import { setTimeout } from "timers/promises";
-import { Mock } from "vitest";
 
-// 必要なモック関数
-const mockSubscribeAsync = vi.fn();
 const mockPublishAsync = vi.fn();
 const mockEndAsync = vi.fn();
-const mockOn = vi.fn<MqttClient["on"]>();
+const mockOn = vi.fn();
 
 vi.mock("mqtt", () => ({
   default: {
@@ -17,26 +14,26 @@ vi.mock("mqtt", () => ({
 }));
 
 beforeEach(() => {
-  vi.resetModules();
   vi.clearAllMocks();
+
+  const mockMqttClient: Partial<MqttClient> = {
+    publishAsync: mockPublishAsync,
+    endAsync: mockEndAsync,
+    on: mockOn,
+  };
+  vi.mocked(mqttjs.connectAsync).mockResolvedValue(
+    mockMqttClient as MqttClient,
+  );
 });
 
 describe("initializeMqttClient", () => {
   test("MQTTクライアントが正常に接続される", async () => {
-    const mockConnectAsync = mqttjs.connectAsync as Mock;
-    mockConnectAsync.mockResolvedValue({
-      subscribeAsync: mockSubscribeAsync,
-      publishAsync: mockPublishAsync,
-      endAsync: mockEndAsync,
-      on: mockOn,
-    });
-
     const mqtt = await initializeMqttClient();
 
     await mqtt.close();
 
     // MQTTクライアントの接続確認
-    expect(mockConnectAsync).toHaveBeenCalledWith(
+    expect(mqttjs.connectAsync).toHaveBeenCalledWith(
       env.MQTT_BROKER,
       expect.objectContaining({
         username: env.MQTT_USERNAME,
@@ -46,14 +43,6 @@ describe("initializeMqttClient", () => {
   });
 
   test("publishがタスクキューに追加される", async () => {
-    const mockConnectAsync = mqttjs.connectAsync as Mock;
-    mockConnectAsync.mockResolvedValue({
-      subscribeAsync: mockSubscribeAsync,
-      publishAsync: mockPublishAsync,
-      endAsync: mockEndAsync,
-      on: mockOn,
-    });
-
     const mqtt = await initializeMqttClient();
 
     // publishを呼び出す
@@ -66,13 +55,6 @@ describe("initializeMqttClient", () => {
   });
 
   test("close(true)を呼び出すとタスクキューが空になりクライアントが終了する", async () => {
-    const mockConnectAsync = mqttjs.connectAsync as Mock;
-    mockConnectAsync.mockResolvedValue({
-      subscribeAsync: mockSubscribeAsync,
-      publishAsync: mockPublishAsync,
-      endAsync: mockEndAsync,
-      on: mockOn,
-    });
     mockPublishAsync.mockImplementation(async () => {
       await setTimeout(100);
       return Promise.resolve();
@@ -93,13 +75,6 @@ describe("initializeMqttClient", () => {
   });
 
   test("close()を呼び出すとタスクキューが残っていてもクライアントが終了する", async () => {
-    const mockConnectAsync = mqttjs.connectAsync as Mock;
-    mockConnectAsync.mockResolvedValue({
-      subscribeAsync: mockSubscribeAsync,
-      publishAsync: mockPublishAsync,
-      endAsync: mockEndAsync,
-      on: mockOn,
-    });
     mockPublishAsync.mockImplementation(async () => {
       await setTimeout(100);
       return Promise.resolve();

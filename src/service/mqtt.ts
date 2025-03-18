@@ -13,7 +13,7 @@ export type MqttClient = {
   close: (wait?: boolean) => Promise<void>;
 };
 
-export default async function initializeMqttClient() {
+export default async function initializeMqttClient(): Promise<MqttClient> {
   const client = await mqttjs.connectAsync(env.MQTT_BROKER, {
     username: env.MQTT_USERNAME,
     password: env.MQTT_PASSWORD,
