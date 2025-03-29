@@ -3,7 +3,7 @@ import logger from "@/logger";
 import { buildDevice, buildEntity, buildOrigin } from "@/payload/builder";
 import { getTopic, TopicType } from "@/payload/topic";
 import initializeMqttClient from "@/service/mqtt";
-import { SmartMeterClient } from "@/service/smartMeter";
+import type { SmartMeterClient } from "@/service/smartMeter";
 import { setTimeout } from "timers/promises";
 
 export default async function setupMqttDeviceManager(

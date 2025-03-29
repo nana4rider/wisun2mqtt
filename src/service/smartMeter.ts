@@ -1,7 +1,8 @@
-import createWiSunConnector, { PanInfo } from "@/connector/WiSunConnector";
+import type { PanInfo } from "@/connector/WiSunConnector";
+import createWiSunConnector from "@/connector/WiSunConnector";
 import { EchonetData } from "@/echonet/EchonetData";
 import { convertUnitForCumulativeElectricEnergy } from "@/echonet/echonetHelper";
-import { Entity } from "@/entity";
+import type { Entity } from "@/entity";
 import env from "@/env";
 import logger from "@/logger";
 import { getDecimalPlaces, parseJson } from "@/util/dataTransformUtil";

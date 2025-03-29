@@ -1,11 +1,12 @@
 import { EchonetData } from "@/echonet/EchonetData";
-import { Entity } from "@/entity";
+import type { Entity } from "@/entity";
 import env from "@/env";
 import logger from "@/logger";
 import setupMqttDeviceManager from "@/manager/mqttDeviceManager";
 import { buildDevice, buildEntity, buildOrigin } from "@/payload/builder";
-import initializeMqttClient, { MqttClient } from "@/service/mqtt";
-import { SmartMeterClient } from "@/service/smartMeter";
+import type { MqttClient } from "@/service/mqtt";
+import initializeMqttClient from "@/service/mqtt";
+import type { SmartMeterClient } from "@/service/smartMeter";
 
 vi.mock("@/payload/builder", () => ({
   buildEntity: vi.fn(),

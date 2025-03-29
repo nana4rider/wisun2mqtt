@@ -1,4 +1,4 @@
-import { Entity } from "@/entity";
+import type { Entity } from "@/entity";
 import { buildDevice, buildEntity, buildOrigin } from "@/payload/builder";
 import { TopicType } from "@/payload/topic";
 

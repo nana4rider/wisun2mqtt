@@ -1,7 +1,7 @@
-import { Entity } from "@/entity";
+import type { Entity } from "@/entity";
 import env from "@/env";
 import { getTopic, TopicType } from "@/payload/topic";
-import { MqttClient } from "@/service/mqtt";
+import type { MqttClient } from "@/service/mqtt";
 
 export function setupAvailability(
   deviceId: string,

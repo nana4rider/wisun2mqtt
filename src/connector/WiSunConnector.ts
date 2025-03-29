@@ -1,5 +1,5 @@
 import { BP35Connector } from "@/connector/BP35Connector";
-import { WiSunConnectorModel } from "@/connector/WiSunConnectorModel";
+import type { WiSunConnectorModel } from "@/connector/WiSunConnectorModel";
 
 export type PanInfo = {
   [name in string]: string;

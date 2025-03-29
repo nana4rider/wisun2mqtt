@@ -1,6 +1,6 @@
-import { PanInfo, WiSunConnector } from "@/connector/WiSunConnector";
+import type { PanInfo, WiSunConnector } from "@/connector/WiSunConnector";
 import logger from "@/logger";
-import { ReadlineParser } from "@serialport/parser-readline";
+import type { ReadlineParser } from "@serialport/parser-readline";
 import assert from "assert";
 import { pEvent } from "p-event";
 import { DelimiterParser, SerialPort } from "serialport";

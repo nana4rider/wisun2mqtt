@@ -1,11 +1,11 @@
 import { BP35Connector } from "@/connector/BP35Connector";
-import { PanInfo, WiSunConnector } from "@/connector/WiSunConnector";
+import type { PanInfo, WiSunConnector } from "@/connector/WiSunConnector";
 import env from "@/env";
 import logger from "@/logger";
 import { MockBinding, MockPortBinding } from "@serialport/binding-mock";
 import { SerialPortStream } from "@serialport/stream";
 import assert from "assert";
-import * as serialport from "serialport";
+import type * as serialport from "serialport";
 
 vi.mock("serialport", async () => {
   const actual = await vi.importActual<typeof serialport>("serialport");

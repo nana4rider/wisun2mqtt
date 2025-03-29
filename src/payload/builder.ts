@@ -1,4 +1,4 @@
-import { Entity } from "@/entity";
+import type { Entity } from "@/entity";
 import env from "@/env";
 import { getTopic, TopicType } from "@/payload/topic";
 import {

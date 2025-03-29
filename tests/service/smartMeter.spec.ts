@@ -1,4 +1,4 @@
-import { PanInfo, WiSunConnector } from "@/connector/WiSunConnector";
+import type { PanInfo, WiSunConnector } from "@/connector/WiSunConnector";
 import { EchonetData } from "@/echonet/EchonetData";
 import env from "@/env";
 import logger from "@/logger";
@@ -8,8 +8,9 @@ import initializeSmartMeterClient, {
 import assert from "assert";
 import fileExists from "file-exists";
 import { readFile, writeFile } from "fs/promises";
-import { CancelablePromise, pEvent } from "p-event";
-import { Writable } from "type-fest";
+import type { CancelablePromise } from "p-event";
+import { pEvent } from "p-event";
+import type { Writable } from "type-fest";
 
 const writableEnv: Writable<typeof env> = env;
 

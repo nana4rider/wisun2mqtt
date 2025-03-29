@@ -1,5 +1,5 @@
 import initializeHttpServer from "@/service/http";
-import { FastifyInstance } from "fastify";
+import type { FastifyInstance } from "fastify";
 
 describe("initializeHttpServer", () => {
   let server: FastifyInstance;

@@ -1,6 +1,6 @@
-import { Entity } from "@/entity";
+import type { Entity } from "@/entity";
 import { setupAvailability } from "@/manager/availabilityManager";
-import { MqttClient } from "@/service/mqtt";
+import type { MqttClient } from "@/service/mqtt";
 
 describe("setupAvailability", () => {
   const deviceId = "deviceId1";

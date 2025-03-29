@@ -1,6 +1,6 @@
 import { BP35Connector } from "@/connector/BP35Connector";
 import createWiSunConnector from "@/connector/WiSunConnector";
-import { WiSunConnectorModel } from "@/connector/WiSunConnectorModel";
+import type { WiSunConnectorModel } from "@/connector/WiSunConnectorModel";
 
 vi.mock("@/connector/BP35Connector");
 
