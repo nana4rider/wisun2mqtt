@@ -76,7 +76,9 @@ export default function createWiSunConnector(
     case "BP35A1":
     case "WSR35A1-00":
       return new BP35Connector(devicePath);
-    default:
-      throw new Error(`Unsupported model: ${String(model)}`);
+    default: {
+      const unsupportedModel: never = model;
+      throw new Error(`Unsupported model: ${String(unsupportedModel)}`);
+    }
   }
 }
