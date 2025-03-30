@@ -43,7 +43,7 @@ export class BP35Connector extends Emitter<Events> implements WiSunConnector {
   private extendArg: string;
 
   /**
-   * BP35C2Connector クラスのインスタンスを初期化します。
+   * BP35Connector クラスのインスタンスを初期化します。
    *
    * @param devicePath シリアルポートのパス
    * @param side B面:0 HAN面:1
