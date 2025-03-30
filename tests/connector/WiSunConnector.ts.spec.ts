@@ -23,7 +23,7 @@ describe("createWiSunConnector", () => {
     expect(wiSunConnector).toBeInstanceOf(BP35Connector);
   });
 
-  test("不正なモデルの場合例外をすろーする", () => {
+  test("不正なモデルの場合例外をスローする", () => {
     vi.mocked(BP35Connector);
 
     const actual = () =>
