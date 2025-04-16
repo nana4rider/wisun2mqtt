@@ -49,6 +49,14 @@ export interface WiSunConnector {
   join(panInfo: PanInfo): Promise<void>;
 
   /**
+   * 接続中のPAN 情報を取得します。
+   *
+   * @returns PAN 情報
+   * @throws まだ接続していない場合
+   */
+  getPanInfo(): PanInfo;
+
+  /**
    * シリアルポートを閉じ、リソースを解放します。
    *
    * @returns シリアルポートが正常に閉じられたときに解決されるPromise

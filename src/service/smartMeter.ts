@@ -1,4 +1,4 @@
-import type { PanInfo } from "@/connector/WiSunConnector";
+import type { PanInfo, WiSunConnector } from "@/connector/WiSunConnector";
 import createWiSunConnector from "@/connector/WiSunConnector";
 import { EchonetData } from "@/echonet/EchonetData";
 import { convertUnitForCumulativeElectricEnergy } from "@/echonet/echonetHelper";
@@ -6,6 +6,7 @@ import type { Entity } from "@/entity";
 import env from "@/env";
 import logger from "@/logger";
 import { getDecimalPlaces, parseJson } from "@/util/dataTransformUtil";
+import assert from "assert";
 import fileExists from "file-exists";
 import { readFile, writeFile } from "fs/promises";
 import { pEvent } from "p-event";
@@ -21,7 +22,8 @@ export type SmartMeterClient = {
 };
 
 export default async function initializeSmartMeterClient(): Promise<SmartMeterClient> {
-  const { wiSunConnector, panInfo } = await initializeWiSunConnector();
+  let wiSunConnector: WiSunConnector | undefined =
+    await initializeWiSunConnector();
 
   const fetchData = async (epcs: number[]): Promise<EchonetData> => {
     const requestData = EchonetData.create({
@@ -30,6 +32,10 @@ export default async function initializeSmartMeterClient(): Promise<SmartMeterCl
       esv: 0x62, // GET命令
       properties: epcs.map((epc) => ({ epc })),
     });
+
+    if (!wiSunConnector) {
+      wiSunConnector = await initializeWiSunConnector();
+    }
 
     const maxRetries = env.ECHONET_GET_RETRIES;
     for (let retries = 0; retries <= maxRetries; retries++) {
@@ -73,6 +79,9 @@ export default async function initializeSmartMeterClient(): Promise<SmartMeterCl
       }
     }
 
+    // リトライしても失敗する場合は接続に問題が起きている可能性が高いので、次回実行時に再接続する
+    await wiSunConnector.close();
+    wiSunConnector = undefined;
     throw new Error("[SmartMeter] Failed to fetch data after all retries.");
   };
 
@@ -91,10 +100,10 @@ export default async function initializeSmartMeterClient(): Promise<SmartMeterCl
   // 係数から精度を求める
   const cumulativeUnitPrecision = getDecimalPlaces(cumulativeMultiplier);
 
-  if (!panInfo["Addr"]) {
-    throw new Error("paninfo[Addr] is empty.");
-  }
-  const deviceId = `smartMeter_${panInfo["Addr"]}`;
+  assert(wiSunConnector);
+  const { Addr: panInfoAddress } = wiSunConnector.getPanInfo();
+
+  const deviceId = `smartMeter_${panInfoAddress}`;
   const manufacturer = initialData.getEdt(0x8a).toString(16).padStart(6, "0");
   const entities: Entity[] = [];
 
@@ -178,7 +187,7 @@ export default async function initializeSmartMeterClient(): Promise<SmartMeterCl
       entities,
     },
     fetchData,
-    close: () => wiSunConnector.close(),
+    close: async () => await wiSunConnector?.close(),
   };
 }
 
@@ -188,7 +197,7 @@ export async function initializeWiSunConnector() {
     env.WISUN_CONNECTOR_MODEL,
     env.WISUN_CONNECTOR_DEVICE_PATH,
   );
-  let panInfo: PanInfo | undefined = undefined;
+  wiSunConnector.on("error", (err) => logger.error("[SmartMeter] Error:", err));
 
   try {
     await wiSunConnector.setAuth(env.ROUTE_B_ID, env.ROUTE_B_PASSWORD);
@@ -198,27 +207,25 @@ export async function initializeWiSunConnector() {
       try {
         const cachedPanInfoText = await readFile(env.PAN_INFO_PATH, "utf8");
         if (cachedPanInfoText.length !== 0) {
-          const cachedPanInfo: PanInfo = parseJson(cachedPanInfoText);
-          await wiSunConnector.join(cachedPanInfo);
-          panInfo = cachedPanInfo;
+          const panInfo: PanInfo = parseJson(cachedPanInfoText);
+          await wiSunConnector.join(panInfo);
           logger.info("[SmartMeter] キャッシュされたPan情報で接続成功");
+
+          return wiSunConnector;
         }
       } catch (err) {
         logger.warn("[SmartMeter] キャッシュされたPan情報で接続失敗", err);
       }
     }
-    if (!panInfo) {
-      panInfo = await wiSunConnector.scan(env.WISUN_SCAN_RETRIES);
-      await wiSunConnector.join(panInfo);
-      await writeFile(env.PAN_INFO_PATH, JSON.stringify(panInfo));
-    }
+
+    const panInfo = await wiSunConnector.scan(env.WISUN_SCAN_RETRIES);
+    await wiSunConnector.join(panInfo);
+    await writeFile(env.PAN_INFO_PATH, JSON.stringify(panInfo));
+
+    return wiSunConnector;
   } catch (err) {
     logger.error(`initializeWiSunConnector:`, err);
     await wiSunConnector.close();
     throw err;
   }
-
-  wiSunConnector.on("error", (err) => logger.error("[SmartMeter] Error:", err));
-
-  return { wiSunConnector, panInfo };
 }

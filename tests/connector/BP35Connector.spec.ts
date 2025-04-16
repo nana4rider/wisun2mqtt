@@ -43,6 +43,7 @@ type PublicWiSunConnector = WiSunConnector & {
   parser: serialport.ReadlineParser;
   scanInternal: () => Promise<PanInfo | undefined>;
   ipv6Address: string;
+  panInfo: PanInfo;
   sendCommand: (
     command: string | Buffer,
     expected?: (data: string) => boolean,
@@ -252,6 +253,24 @@ describe("close", () => {
     const actual = connector.close();
 
     await expect(actual).resolves.not.toThrow();
+  });
+});
+
+describe("getPanInfo", () => {
+  test("未接続", () => {
+    const connector = createConnector();
+    const actual = () => connector.getPanInfo();
+
+    expect(actual).toThrow();
+  });
+
+  test("接続済み", () => {
+    const connector = createConnector();
+    connector.panInfo = mockPanInfo;
+
+    const actual = connector.getPanInfo();
+
+    expect(actual).toEqual(mockPanInfo);
   });
 });
 

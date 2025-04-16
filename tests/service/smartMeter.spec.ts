@@ -20,6 +20,7 @@ const mockWiSunConnector: WiSunConnector = {
   scan: vi.fn(),
   join: vi.fn(),
   sendEchonetLite: vi.fn(),
+  getPanInfo: vi.fn(),
   close: vi.fn(),
 };
 
@@ -49,6 +50,7 @@ const mockPanInfo: PanInfo = {
 
 beforeEach(() => {
   vi.resetAllMocks();
+  vi.mocked(mockWiSunConnector.getPanInfo).mockReturnValue(mockPanInfo);
 });
 
 function implementFileExists(exists: boolean) {
@@ -58,11 +60,11 @@ function implementFileExists(exists: boolean) {
 }
 
 describe("initializeWiSunConnector", () => {
-  test("接続成功時、WiSunConnectorとPanInfoを返す", async () => {
+  test("接続成功時、WiSunConnectorを返す", async () => {
     implementFileExists(false);
     vi.mocked(mockWiSunConnector.scan).mockResolvedValue(mockPanInfo);
 
-    const { wiSunConnector, panInfo } = await initializeWiSunConnector();
+    const wiSunConnector = await initializeWiSunConnector();
 
     expect(mockWiSunConnector.setAuth).toHaveBeenCalledWith(
       env.ROUTE_B_ID,
@@ -73,18 +75,17 @@ describe("initializeWiSunConnector", () => {
     );
     expect(mockWiSunConnector.join).toHaveBeenCalledWith(mockPanInfo);
     expect(wiSunConnector).toEqual(mockWiSunConnector);
-    expect(panInfo).toEqual(mockPanInfo);
   });
 
   test("接続成功時、Pan情報がキャッシュされる", async () => {
     implementFileExists(false);
     vi.mocked(mockWiSunConnector.scan).mockResolvedValue(mockPanInfo);
 
-    const { panInfo } = await initializeWiSunConnector();
+    await initializeWiSunConnector();
 
     expect(writeFile).toHaveBeenCalledWith(
       env.PAN_INFO_PATH,
-      JSON.stringify(panInfo),
+      JSON.stringify(mockPanInfo),
     );
   });
 
@@ -131,7 +132,7 @@ describe("initializeWiSunConnector", () => {
     implementFileExists(true);
     vi.mocked(readFile).mockResolvedValue(JSON.stringify(mockPanInfo));
     const logErrorSpy = vi.spyOn(logger, "error");
-    const { wiSunConnector } = await initializeWiSunConnector();
+    const wiSunConnector = await initializeWiSunConnector();
 
     const handleError = vi.mocked<
       (event: "error", listener: (err: Error) => void) => WiSunConnector
@@ -330,8 +331,8 @@ describe("initializeSmartMeterClient", () => {
     expect(pEvent).toHaveBeenCalledTimes(3);
   });
 
-  test("Pan情報のAddrがない場合に例外をスローする", async () => {
-    const mockResponseBuffer = EchonetData.create({
+  test("GET要求に対しての返信がエラーの場合、次回呼び出し時に再接続する", async () => {
+    const mockResponseSuccessBuffer = EchonetData.create({
       seoj: 0x028801,
       deoj: 0x05ff01,
       esv: 0x72,
@@ -342,18 +343,24 @@ describe("initializeSmartMeterClient", () => {
         { epc: 0x8a, edt: 0x16 },
       ],
     }).toBuffer();
+    const mockResponseFailureBuffer = EchonetData.create({
+      seoj: 0x028801,
+      deoj: 0x05ff01,
+      esv: 0x52,
+      tid: 0x00,
+      properties: [],
+    }).toBuffer();
 
-    vi.mocked(pEvent).mockResolvedValue(mockResponseBuffer);
-    vi.mocked(mockWiSunConnector.scan)
-      .mockClear()
-      .mockImplementation(() => {
-        const removedAddrPanInfo = { ...mockPanInfo };
-        delete removedAddrPanInfo["Addr"];
-        return Promise.resolve(removedAddrPanInfo);
-      });
+    vi.mocked(pEvent)
+      .mockResolvedValueOnce(mockResponseSuccessBuffer)
+      .mockResolvedValueOnce(mockResponseFailureBuffer)
+      .mockResolvedValueOnce(mockResponseSuccessBuffer);
 
-    const actual = initializeSmartMeterClient();
-    await expect(actual).rejects.toThrow("paninfo[Addr] is empty.");
+    const { fetchData } = await initializeSmartMeterClient();
+    await fetchData([0x00]).catch(() => {});
+    await fetchData([0x00]);
+
+    expect(mockWiSunConnector.join).toHaveBeenCalledTimes(2);
   });
 
   test("closeメソッドを呼び出すとwiSunConnectorがクローズされる", async () => {
