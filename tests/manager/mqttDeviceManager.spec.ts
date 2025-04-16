@@ -220,7 +220,7 @@ describe("setupMqttDeviceManager", () => {
       fetchData: vi.fn().mockRejectedValue(new Error("test error")),
     };
 
-    const logErrorSpy = vi.spyOn(logger, "warn");
+    const logErrorSpy = vi.spyOn(logger, "error");
     const { stopAutoRequest } = await setupMqttDeviceManager(
       mockSmartMeterClient as SmartMeterClient,
     );

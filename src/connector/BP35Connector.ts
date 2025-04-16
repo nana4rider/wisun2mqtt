@@ -40,6 +40,7 @@ export class BP35Connector extends Emitter<Events> implements WiSunConnector {
   private serialPort: SerialPort;
   private parser: ReadlineParser;
   private ipv6Address: string | undefined;
+  private panInfo: PanInfo | undefined;
   private extendArg: string;
 
   /**
@@ -270,6 +271,14 @@ export class BP35Connector extends Emitter<Events> implements WiSunConnector {
     }
 
     return panInfo;
+  }
+
+  /** @inheritdoc */
+  getPanInfo(): PanInfo {
+    if (!this.panInfo) {
+      throw new Error("Not connected to the device.");
+    }
+    return this.panInfo;
   }
 
   /** @inheritdoc */
