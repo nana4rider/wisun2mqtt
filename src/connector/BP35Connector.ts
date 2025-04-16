@@ -228,6 +228,7 @@ export class BP35Connector extends Emitter<Events> implements WiSunConnector {
     }
 
     this.ipv6Address = ipv6Address;
+    this.panInfo = panInfo;
   }
 
   private async scanInternal(): Promise<PanInfo | undefined> {
