@@ -146,6 +146,15 @@ describe("join", () => {
 
     await expect(actual).rejects.toThrow();
   });
+
+  test("PanInfoが設定されている", async () => {
+    const connector = createConnector();
+    initJoin(connector, "25");
+
+    await connector.join(mockPanInfo);
+
+    expect(connector.panInfo).toEqual(mockPanInfo);
+  });
 });
 
 describe("scan", () => {
