@@ -101,9 +101,9 @@ export default async function initializeSmartMeterClient(): Promise<SmartMeterCl
   const cumulativeUnitPrecision = getDecimalPlaces(cumulativeMultiplier);
 
   assert(wiSunConnector);
-  const { Addr: panInfoAddress } = wiSunConnector.getPanInfo();
+  const panInfo = wiSunConnector.getPanInfo();
 
-  const deviceId = `smartMeter_${panInfoAddress}`;
+  const deviceId = `smartMeter_${panInfo.Addr}`;
   const manufacturer = initialData.getEdt(0x8a).toString(16).padStart(6, "0");
   const entities: Entity[] = [];
 

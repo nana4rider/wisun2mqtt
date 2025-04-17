@@ -211,10 +211,10 @@ export class BP35Connector extends Emitter<Events> implements WiSunConnector {
    */
   async join(panInfo: PanInfo): Promise<void> {
     logger.info("Configuring Wi-SUN connection...");
-    await this.sendCommand(`SKSREG S2 ${panInfo["Channel"]}`);
+    await this.sendCommand(`SKSREG S2 ${panInfo.Channel}`);
     await this.sendCommand(`SKSREG S3 ${panInfo["Pan ID"]}`);
     const [_echo, ipv6Address] = await this.sendCommand(
-      `SKLL64 ${panInfo["Addr"]}`,
+      `SKLL64 ${panInfo.Addr}`,
       (data) => !data.startsWith("SKLL64"),
     );
     const responses = await this.sendCommand(
@@ -239,7 +239,7 @@ export class BP35Connector extends Emitter<Events> implements WiSunConnector {
       SCAN_TIMEOUT,
     );
 
-    const panInfo: PanInfo = {};
+    const panInfo: Record<string, string> = {};
     responses.forEach((res) => {
       const paninfoMatcher = res.match(
         /^ {2}(?<key>[a-zA-Z ]+):(?<value>[A-Z0-9]+)/,
@@ -253,7 +253,7 @@ export class BP35Connector extends Emitter<Events> implements WiSunConnector {
     }
 
     logger.info("PAN scan completed successfully");
-    return panInfo;
+    return panInfo as PanInfo;
   }
 
   /** @inheritdoc */

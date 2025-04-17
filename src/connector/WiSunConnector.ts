@@ -2,7 +2,10 @@ import { BP35Connector } from "@/connector/BP35Connector";
 import type { WiSunConnectorModel } from "@/connector/WiSunConnectorModel";
 
 export type PanInfo = {
-  [name in string]: string;
+  Addr: string;
+  Channel: string;
+  "Pan ID": string;
+  [key: string]: string | undefined;
 };
 
 export interface WiSunConnector {
