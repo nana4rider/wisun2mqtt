@@ -73,8 +73,8 @@ export default async function initializeSmartMeterClient(): Promise<SmartMeterCl
         if (retries < maxRetries) {
           logger.warn(
             `[SmartMeter] Error occurred, retrying... (${retries + 1}/${maxRetries})`,
-            err,
           );
+          logger.debug("err:", err);
         }
       }
     }
@@ -214,7 +214,8 @@ export async function initializeWiSunConnector() {
           return wiSunConnector;
         }
       } catch (err) {
-        logger.warn("[SmartMeter] キャッシュされたPan情報で接続失敗", err);
+        logger.warn("[SmartMeter] キャッシュされたPan情報で接続失敗");
+        logger.debug("err:", err);
       }
     }
 
