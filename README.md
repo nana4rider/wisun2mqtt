@@ -24,8 +24,6 @@ ECHONET Liteプロトコルを使用して、Wi-SUN対応スマートメータ�
 
 ## 使い方
 
-必要な環境変数については[こちら](https://github.com/nana4rider/wisun2mqtt/blob/main/src/env.ts)をご確認ください。
-
 ### Native
 
 ```sh
