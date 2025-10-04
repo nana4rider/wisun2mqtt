@@ -35,7 +35,7 @@ describe("initializeMqttClient", () => {
     await mqtt.close();
 
     // MQTTクライアントの接続確認
-    expect(mqttjs.connectAsync).toHaveBeenCalledWith(
+    expect(mqttjs.connectAsync).toHaveBeenCalledExactlyOnceWith(
       env.MQTT_BROKER,
       expect.objectContaining({
         clientId: expect.stringMatching(

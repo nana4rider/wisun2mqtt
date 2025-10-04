@@ -382,7 +382,12 @@ describe("setupSerialEventHandlers", () => {
 
     await connector.sendCommand("SKTEST");
 
-    expect(logDebugSpy).toHaveBeenCalledWith(
+    expect(logDebugSpy).toHaveBeenNthCalledWith(
+      1,
+      "Sending command: SKTEST<CRLF>",
+    );
+    expect(logDebugSpy).toHaveBeenNthCalledWith(
+      2,
       "Received TEXT data from SerialPort: SKTEST",
     );
   });
@@ -401,7 +406,12 @@ describe("setupSerialEventHandlers", () => {
 
     await connector.sendCommand("SKTEST 1 2 3");
 
-    expect(logDebugSpy).toHaveBeenCalledWith(
+    expect(logDebugSpy).toHaveBeenNthCalledWith(
+      1,
+      "Sending command: SKTEST 1 2 3<CRLF>",
+    );
+    expect(logDebugSpy).toHaveBeenNthCalledWith(
+      2,
       "Received TEXT data from SerialPort: SKTEST 1 2 3",
     );
   });
@@ -422,7 +432,7 @@ describe("setupSerialEventHandlers", () => {
       data.startsWith("ERXUDP"),
     );
 
-    expect(logErrorSpy).toHaveBeenCalledWith(
+    expect(logErrorSpy).toHaveBeenCalledExactlyOnceWith(
       "Invalid ERXUDP message format received from SerialPort: ERXUDP unknown",
     );
   });
@@ -446,7 +456,7 @@ describe("setupSerialEventHandlers", () => {
       data.startsWith("ERXUDP"),
     );
 
-    expect(logInfoSpy).toHaveBeenCalledWith(
+    expect(logInfoSpy).toHaveBeenCalledExactlyOnceWith(
       "Received data does not match ECHONET Lite format.",
     );
   });
@@ -470,7 +480,7 @@ describe("setupSerialEventHandlers", () => {
       data.startsWith("ERXUDP"),
     );
 
-    expect(logInfoSpy).toHaveBeenCalledWith(
+    expect(logInfoSpy).toHaveBeenCalledExactlyOnceWith(
       "Received data does not match ECHONET Lite format.",
     );
   });
@@ -536,7 +546,7 @@ describe("setupSerialEventHandlers", () => {
 
     mockPort.emit("error", new Error("test error"));
 
-    expect(logErrorSpy).toHaveBeenCalledWith(
+    expect(logErrorSpy).toHaveBeenCalledExactlyOnceWith(
       "An error occurred in the SerialPort:",
       expect.any(Error),
     );

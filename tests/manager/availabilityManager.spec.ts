@@ -32,8 +32,9 @@ describe("setupAvailability", () => {
     pushOnline();
 
     expect(mockMqttClient.publish).toHaveBeenCalledTimes(entities.length);
-    entities.forEach((entity) => {
-      expect(mockMqttClient.publish).toHaveBeenCalledWith(
+    entities.forEach((entity, index) => {
+      expect(mockMqttClient.publish).toHaveBeenNthCalledWith(
+        index + 1,
         expect.stringContaining(entity.id),
         "online",
       );
@@ -49,8 +50,9 @@ describe("setupAvailability", () => {
     close();
 
     expect(mockMqttClient.publish).toHaveBeenCalledTimes(entities.length);
-    entities.forEach((entity) => {
-      expect(mockMqttClient.publish).toHaveBeenCalledWith(
+    entities.forEach((entity, index) => {
+      expect(mockMqttClient.publish).toHaveBeenNthCalledWith(
+        index + 1,
         expect.stringContaining(entity.id),
         "offline",
       );
@@ -64,8 +66,9 @@ describe("setupAvailability", () => {
     vi.advanceTimersByTime(10000); // Assume AVAILABILITY_INTERVAL is 10000ms
 
     expect(mockMqttClient.publish).toHaveBeenCalledTimes(entities.length);
-    entities.forEach((entity) => {
-      expect(mockMqttClient.publish).toHaveBeenCalledWith(
+    entities.forEach((entity, index) => {
+      expect(mockMqttClient.publish).toHaveBeenNthCalledWith(
+        index + 1,
         expect.stringContaining(entity.id),
         "online",
       );

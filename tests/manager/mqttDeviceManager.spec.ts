@@ -63,7 +63,7 @@ describe("setupMqttDeviceManager", () => {
     );
     await stopAutoRequest();
 
-    expect(mockMqttClient.publish).toHaveBeenCalledWith(
+    expect(mockMqttClient.publish).toHaveBeenCalledExactlyOnceWith(
       `${env.HA_DISCOVERY_PREFIX}/sensor/wisun2mqtt_deviceId_entity1/config`,
       JSON.stringify({
         unique_id: "wisun2mqtt_deviceId_entity1",
@@ -115,7 +115,9 @@ describe("setupMqttDeviceManager", () => {
     );
     await stopAutoRequest();
 
-    expect(mockSmartMeterClient.fetchData).toHaveBeenCalledWith([0x88, 0x99]);
+    expect(mockSmartMeterClient.fetchData).toHaveBeenCalledExactlyOnceWith([
+      0x88, 0x99,
+    ]);
   });
 
   test("エンティティに存在しないepcは無視する", async () => {
@@ -190,7 +192,7 @@ describe("setupMqttDeviceManager", () => {
     await stopAutoRequest();
 
     expect(mockConverter).toHaveBeenCalled();
-    expect(mockMqttClient.publish).toHaveBeenCalledWith(
+    expect(mockMqttClient.publish).toHaveBeenLastCalledWith(
       "wisun2mqtt/deviceId/entity1/state",
       "999",
       {
@@ -226,7 +228,7 @@ describe("setupMqttDeviceManager", () => {
     );
     await stopAutoRequest();
 
-    expect(logErrorSpy).toHaveBeenCalledWith(
+    expect(logErrorSpy).toHaveBeenCalledExactlyOnceWith(
       "Failed to fetch ECHONET properties",
       expect.any(Error),
     );

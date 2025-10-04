@@ -66,14 +66,16 @@ describe("initializeWiSunConnector", () => {
 
     const wiSunConnector = await initializeWiSunConnector();
 
-    expect(mockWiSunConnector.setAuth).toHaveBeenCalledWith(
+    expect(mockWiSunConnector.setAuth).toHaveBeenCalledExactlyOnceWith(
       env.ROUTE_B_ID,
       env.ROUTE_B_PASSWORD,
     );
-    expect(mockWiSunConnector.scan).toHaveBeenCalledWith(
+    expect(mockWiSunConnector.scan).toHaveBeenCalledExactlyOnceWith(
       env.WISUN_SCAN_RETRIES,
     );
-    expect(mockWiSunConnector.join).toHaveBeenCalledWith(mockPanInfo);
+    expect(mockWiSunConnector.join).toHaveBeenCalledExactlyOnceWith(
+      mockPanInfo,
+    );
     expect(wiSunConnector).toEqual(mockWiSunConnector);
   });
 
@@ -83,7 +85,7 @@ describe("initializeWiSunConnector", () => {
 
     await initializeWiSunConnector();
 
-    expect(writeFile).toHaveBeenCalledWith(
+    expect(writeFile).toHaveBeenCalledExactlyOnceWith(
       env.PAN_INFO_PATH,
       JSON.stringify(mockPanInfo),
     );
@@ -97,7 +99,9 @@ describe("initializeWiSunConnector", () => {
 
     expect(mockWiSunConnector.scan).not.toHaveBeenCalled();
     expect(mockWiSunConnector.join).toHaveBeenCalledTimes(1);
-    expect(mockWiSunConnector.join).toHaveBeenCalledWith(mockPanInfo);
+    expect(mockWiSunConnector.join).toHaveBeenCalledExactlyOnceWith(
+      mockPanInfo,
+    );
   });
 
   test("キャッシュされたPan情報で接続に失敗するとスキャンしてjoinを試みる", async () => {
@@ -139,7 +143,7 @@ describe("initializeWiSunConnector", () => {
     >(wiSunConnector.on).mock.calls[0][1];
     handleError(new Error("on error"));
 
-    expect(logErrorSpy).toHaveBeenCalledWith(
+    expect(logErrorSpy).toHaveBeenCalledExactlyOnceWith(
       "[SmartMeter] Error:",
       expect.any(Error),
     );

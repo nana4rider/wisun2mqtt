@@ -5,12 +5,16 @@ import type { WiSunConnectorModel } from "@/connector/WiSunConnectorModel";
 vi.mock("@/connector/BP35Connector");
 
 describe("createWiSunConnector", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
   test("side指定ありモデルのインスタンスを取得できる", () => {
     const MockBP35Connector = vi.mocked(BP35Connector);
 
     const wiSunConnector = createWiSunConnector("BP35C2", "devicePath");
 
-    expect(MockBP35Connector).toHaveBeenCalledWith("devicePath", 0);
+    expect(MockBP35Connector).toHaveBeenCalledExactlyOnceWith("devicePath", 0);
     expect(wiSunConnector).toBeInstanceOf(BP35Connector);
   });
 
@@ -19,7 +23,7 @@ describe("createWiSunConnector", () => {
 
     const wiSunConnector = createWiSunConnector("BP35A1", "devicePath");
 
-    expect(MockBP35Connector).toHaveBeenCalledWith("devicePath");
+    expect(MockBP35Connector).toHaveBeenCalledExactlyOnceWith("devicePath");
     expect(wiSunConnector).toBeInstanceOf(BP35Connector);
   });
 
