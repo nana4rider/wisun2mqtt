@@ -1,5 +1,11 @@
 # Wi-SUN2MQTT
 
+> [!NOTE]
+>
+> 公式のインテグレーションが公開されたため、今後はそちらをお使いください。
+>
+> https://www.home-assistant.io/integrations/route_b_smart_meter/
+
 [![License: ISC](https://img.shields.io/github/license/nana4rider/wisun2mqtt)](LICENSE)
 ![GitHub Actions Test](https://github.com/nana4rider/wisun2mqtt/actions/workflows/test.yml/badge.svg)
 ![GitHub Actions Release](https://github.com/nana4rider/wisun2mqtt/actions/workflows/release.yml/badge.svg)
