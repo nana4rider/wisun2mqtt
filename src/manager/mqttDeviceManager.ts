@@ -38,26 +38,31 @@ export default async function setupMqttDeviceManager(
     while (isAutoRequestRunning) {
       logger.info("Starting periodic ECHONET property fetch...");
       try {
-        const echonetData = await smartMeterClient.fetchData(
-          entities.map((entity) => entity.epc),
-        );
+        const epcs = [...new Set(entities.map((e) => e.epc))];
+        const echonetData = await smartMeterClient.fetchData(epcs);
         logger.debug(`Receive message: ${echonetData.toString()}`);
         echonetData.properties.forEach((property) => {
-          const entity = entities.find((entity) => entity.epc === property.epc);
-          if (entity === undefined) {
+          const targetEntities = entities.filter(
+            (entity) => entity.epc === property.epc,
+          );
+          if (targetEntities.length === 0) {
             logger.error(
               `エンティティに存在しないプロパティ: epc=${property.epc} edt=${property.edt}`,
             );
             return;
           }
-          const stateValue = entity.converter(echonetData.getEdt(property.epc));
-          mqtt.publish(
-            getTopic(deviceId, entity, TopicType.STATE),
-            stateValue,
-            {
-              retain: true,
-            },
-          );
+          for (const entity of targetEntities) {
+            const stateValue = entity.converter(
+              echonetData.getEdt(property.epc),
+            );
+            mqtt.publish(
+              getTopic(deviceId, entity, TopicType.STATE),
+              stateValue,
+              {
+                retain: true,
+              },
+            );
+          }
         });
 
         logger.info("ECHONET property fetch completed successfully.");
