@@ -41,17 +41,10 @@ export default async function setupMqttDeviceManager(
         const epcs = [...new Set(entities.map((e) => e.epc))];
         const echonetData = await smartMeterClient.fetchData(epcs);
         logger.debug(`Receive message: ${echonetData.toString()}`);
-        echonetData.properties.forEach((property) => {
-          const targetEntities = entities.filter(
-            (entity) => entity.epc === property.epc,
-          );
-          if (targetEntities.length === 0) {
-            logger.error(
-              `エンティティに存在しないプロパティ: epc=${property.epc} edt=${property.edt}`,
-            );
-            return;
-          }
-          for (const entity of targetEntities) {
+        for (const property of echonetData.properties) {
+          for (const entity of entities) {
+            if (entity.epc !== property.epc) continue;
+
             const stateValue = entity.converter(
               echonetData.getEdt(property.epc),
             );
@@ -63,7 +56,7 @@ export default async function setupMqttDeviceManager(
               },
             );
           }
-        });
+        }
 
         logger.info("ECHONET property fetch completed successfully.");
       } catch (err) {
