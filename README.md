@@ -47,6 +47,7 @@ touch .paninfo
 
 docker run -d \
   --name wisun2mqtt \
+  --group-add dialout \
   --device /dev/ttyUSB0:/dev/ttyUSB0 \
   -v /dev/ttyUSB0:/dev/ttyUSB0 \
   -v $(pwd)/.paninfo.json:/app/.paninfo.json \

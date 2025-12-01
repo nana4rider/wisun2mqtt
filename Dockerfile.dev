@@ -5,9 +5,6 @@ COPY package*.json ./
 RUN npm ci
 COPY --chown=node:node . .
 
-RUN addgroup -g 20 dialout || true \
-    && adduser node dialout
-
 USER node
 EXPOSE 3000
 
