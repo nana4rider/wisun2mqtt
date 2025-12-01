@@ -53,7 +53,7 @@ docker run -d \
   --env-file .env \
   -p 3000:3000 \
   --restart always \
-  nana4rider/wisun2mqtt:latest
+  ghcr.io/nana4rider/wisun2mqtt:latest
 ```
 
 > [!TIP]
