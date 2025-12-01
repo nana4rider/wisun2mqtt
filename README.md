@@ -2,9 +2,10 @@
 
 > [!NOTE]
 >
-> 公式のインテグレーションが公開されたため、今後はそちらをお使いください。
+> 公式の[インテグレーション](https://www.home-assistant.io/integrations/route_b_smart_meter/)が公開されましたが、下記の理由から開発を継続します。
 >
-> https://www.home-assistant.io/integrations/route_b_smart_meter/
+> - 長期間の運用で安定しない(一度接続が切れると再接続に失敗する)
+> - Home Assistantと異なる端末で動作したい
 
 [![License: ISC](https://img.shields.io/github/license/nana4rider/wisun2mqtt)](LICENSE)
 ![GitHub Actions Test](https://github.com/nana4rider/wisun2mqtt/actions/workflows/test.yml/badge.svg)

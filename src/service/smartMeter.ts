@@ -137,7 +137,7 @@ export default async function initializeSmartMeterClient(): Promise<SmartMeterCl
   });
   entities.push({
     id: "instantaneousCurrent",
-    name: "瞬時電流計測値",
+    name: "瞬時電流計測値 (R相)",
     domain: "sensor",
     deviceClass: "current",
     stateClass: "measurement",
@@ -146,11 +146,23 @@ export default async function initializeSmartMeterClient(): Promise<SmartMeterCl
     unitPrecision: 1,
     epc: 0xe8,
     converter: (value) => {
-      // R相
       const rPhase = (value >> 16) & 0xffff;
-      // T相
+      return (rPhase * 0.1).toFixed(1);
+    },
+  });
+  entities.push({
+    id: "instantaneousCurrent",
+    name: "瞬時電流計測値 (T相)",
+    domain: "sensor",
+    deviceClass: "current",
+    stateClass: "measurement",
+    unit: "A",
+    nativeValue: "float",
+    unitPrecision: 1,
+    epc: 0xe8,
+    converter: (value) => {
       const tPhase = value & 0xffff;
-      return String((rPhase + (tPhase === 0x7ffe ? 0 : tPhase)) * 0.1);
+      return tPhase === 0x7ffe ? "0" : (tPhase * 0.1).toFixed(1);
     },
   });
   entities.push({

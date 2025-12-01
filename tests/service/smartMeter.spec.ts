@@ -212,7 +212,19 @@ describe("initializeSmartMeterClient", () => {
         domain: "sensor",
         epc: 232,
         id: "instantaneousCurrent",
-        name: "瞬時電流計測値",
+        name: "瞬時電流計測値 (R相)",
+        nativeValue: "float",
+        stateClass: "measurement",
+        unit: "A",
+        unitPrecision: 1,
+      },
+      {
+        converter: expect.any(Function) as (value: number) => string,
+        deviceClass: "current",
+        domain: "sensor",
+        epc: 232,
+        id: "instantaneousCurrent",
+        name: "瞬時電流計測値 (T相)",
         nativeValue: "float",
         stateClass: "measurement",
         unit: "A",
@@ -269,13 +281,15 @@ describe("initializeSmartMeterClient", () => {
     expect(device.entities[1].converter(0x41)).toBe("ON");
     // 瞬時電力計測値
     expect(device.entities[2].converter(100)).toBe("100");
-    // 瞬時電流計測値
-    expect(device.entities[3].converter(0xaaaabbbb)).toBe("9174.9");
-    expect(device.entities[3].converter(0xaaaa7ffe)).toBe("4369"); // T相なし
+    // 瞬時電流計測値 (R相)
+    expect(device.entities[3].converter(0xaaaabbbb)).toBe("4369.0");
+    // 瞬時電流計測値 (T相)
+    expect(device.entities[4].converter(0xaaaabbbb)).toBe("4805.9");
+    expect(device.entities[4].converter(0xaaaa7ffe)).toBe("0");
     // 積算電力量計測値 (正方向計測値)
-    expect(device.entities[4].converter(100)).toBe("10");
+    expect(device.entities[5].converter(100)).toBe("10");
     // 積算電力量計測値 (逆方向計測値)
-    expect(device.entities[5].converter(200)).toBe("20");
+    expect(device.entities[6].converter(200)).toBe("20");
   });
 
   test("GET要求に対しての返信ではない場合filterがfalseを返す", async () => {

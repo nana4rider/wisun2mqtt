@@ -15,6 +15,9 @@ COPY --chown=node:node --from=build /app/package*.json ./
 RUN npm ci --omit=dev --ignore-scripts
 COPY --from=build /app/dist dist
 
+RUN addgroup -g 20 dialout || true \
+    && adduser node dialout
+
 USER node
 EXPOSE 3000
 
