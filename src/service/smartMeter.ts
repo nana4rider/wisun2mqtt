@@ -136,7 +136,7 @@ export default async function initializeSmartMeterClient(): Promise<SmartMeterCl
     converter: (value) => String(value),
   });
   entities.push({
-    id: "instantaneousCurrent",
+    id: "instantaneousCurrentR",
     name: "瞬時電流計測値 (R相)",
     domain: "sensor",
     deviceClass: "current",
@@ -151,7 +151,7 @@ export default async function initializeSmartMeterClient(): Promise<SmartMeterCl
     },
   });
   entities.push({
-    id: "instantaneousCurrent",
+    id: "instantaneousCurrentT",
     name: "瞬時電流計測値 (T相)",
     domain: "sensor",
     deviceClass: "current",
