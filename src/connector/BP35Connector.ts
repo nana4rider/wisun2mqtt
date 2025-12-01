@@ -52,7 +52,6 @@ export class BP35Connector extends Emitter<Events> implements WiSunConnector {
    * @param devicePath シリアルポートのパス
    * @param side B面:0 HAN面:1
    * @param binding SerialPortのbinding
-   * @param
    */
   constructor(
     devicePath: string,
