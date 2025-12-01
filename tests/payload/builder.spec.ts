@@ -33,6 +33,21 @@ describe("buildEntity", () => {
     expect(entity).toHaveProperty("suggested_display_precision", 3);
     expect(entity).toHaveProperty("qos");
   });
+
+  test("非必須属性が未設定の場合は含めない", () => {
+    const mockEntity = {
+      id: "entity1",
+      name: "Test Entity",
+    } as Entity;
+
+    const entity = buildEntity("deviceId1", mockEntity);
+
+    expect(entity).not.toHaveProperty("device_class");
+    expect(entity).not.toHaveProperty("state_class");
+    expect(entity).not.toHaveProperty("unit_of_measurement");
+    expect(entity).not.toHaveProperty("native_value");
+    expect(entity).not.toHaveProperty("suggested_display_precision");
+  });
 });
 
 describe("buildDevice", () => {

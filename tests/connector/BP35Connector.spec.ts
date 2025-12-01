@@ -3,30 +3,8 @@ import type { PanInfo, WiSunConnector } from "@/connector/WiSunConnector";
 import env from "@/env";
 import logger from "@/logger";
 import { MockBinding, MockPortBinding } from "@serialport/binding-mock";
-import { SerialPortStream } from "@serialport/stream";
 import assert from "assert";
-import type * as serialport from "serialport";
-
-vi.mock("serialport", async () => {
-  const actual = await vi.importActual<typeof serialport>("serialport");
-  return {
-    ...actual,
-    SerialPort: vi
-      .fn()
-      .mockImplementation(
-        ({
-          path,
-          baudRate,
-        }: ConstructorParameters<typeof serialport.SerialPort>[0]) => {
-          return new SerialPortStream({
-            binding: MockBinding,
-            path,
-            baudRate,
-          });
-        },
-      ),
-  };
-});
+import type { ReadlineParser, SerialPort } from "serialport";
 
 const mockPanInfo: PanInfo = {
   Channel: "00",
@@ -39,8 +17,8 @@ const mockPanInfo: PanInfo = {
 };
 
 type PublicWiSunConnector = WiSunConnector & {
-  serialPort: serialport.SerialPort;
-  parser: serialport.ReadlineParser;
+  serialPort: SerialPort;
+  parser: ReadlineParser;
   scanInternal: () => Promise<PanInfo | undefined>;
   ipv6Address: string;
   panInfo: PanInfo;
@@ -57,19 +35,24 @@ function createConnector(suportSide = true) {
   const connector = new BP35Connector(
     devicePath,
     suportSide ? 0 : undefined,
+    MockBinding,
   ) as unknown as PublicWiSunConnector;
   return connector;
 }
 
-function emitText(mockPort: serialport.SerialPort, text: string) {
+function emitText(mockPort: SerialPort, text: string) {
   assert(mockPort.port instanceof MockPortBinding);
   mockPort.port.emitData(Buffer.from(`${text}\r\n`, "utf8"));
 }
 
-function emitBuffer(mockPort: serialport.SerialPort, buffer: Buffer) {
+function emitBuffer(mockPort: SerialPort, buffer: Buffer) {
   assert(mockPort.port instanceof MockPortBinding);
   mockPort.port.emitData(buffer);
 }
+
+beforeEach(() => {
+  vi.resetAllMocks();
+});
 
 describe("setAuth", () => {
   test("正しいコマンドを送信している", async () => {

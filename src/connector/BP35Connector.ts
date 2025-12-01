@@ -1,9 +1,12 @@
 import type { PanInfo, WiSunConnector } from "@/connector/WiSunConnector";
 import logger from "@/logger";
+import type { BindingInterface } from "@serialport/bindings-cpp";
+import { autoDetect } from "@serialport/bindings-cpp";
 import type { ReadlineParser } from "@serialport/parser-readline";
+import { SerialPortStream } from "@serialport/stream";
 import assert from "assert";
 import { pEvent } from "p-event";
-import { DelimiterParser, SerialPort } from "serialport";
+import { DelimiterParser } from "serialport";
 import { Emitter } from "strict-event-emitter";
 
 /** ボーレート */
@@ -37,7 +40,7 @@ type Events = {
 };
 
 export class BP35Connector extends Emitter<Events> implements WiSunConnector {
-  private serialPort: SerialPort;
+  private serialPort: SerialPortStream;
   private parser: ReadlineParser;
   private ipv6Address: string | undefined;
   private panInfo: PanInfo | undefined;
@@ -48,13 +51,22 @@ export class BP35Connector extends Emitter<Events> implements WiSunConnector {
    *
    * @param devicePath シリアルポートのパス
    * @param side B面:0 HAN面:1
+   * @param binding SerialPortのbinding
    * @param
    */
-  constructor(devicePath: string, side: 0 | 1 | undefined = undefined) {
+  constructor(
+    devicePath: string,
+    side: 0 | 1 | undefined = undefined,
+    binding: BindingInterface = autoDetect(),
+  ) {
     super();
 
     this.extendArg = side !== undefined ? ` ${side}` : "";
-    this.serialPort = new SerialPort({ path: devicePath, baudRate: BAUDRATE });
+    this.serialPort = new SerialPortStream({
+      binding,
+      path: devicePath,
+      baudRate: BAUDRATE,
+    });
     this.parser = this.serialPort.pipe(
       new DelimiterParser({ delimiter: Buffer.from(CRLF, "utf-8") }),
     );

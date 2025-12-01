@@ -57,8 +57,8 @@ export function buildDevice(
 
 export function buildOrigin(): Readonly<Payload> {
   const origin: Payload = {};
-  if (typeof packageName === "string") origin.name = packageName;
-  if (typeof packageVersion === "string") origin.sw_version = packageVersion;
-  if (typeof packageHomepage === "string") origin.support_url = packageHomepage;
+  origin.name = packageName;
+  origin.sw_version = packageVersion;
+  origin.support_url = packageHomepage;
   return { origin };
 }

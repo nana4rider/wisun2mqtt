@@ -104,6 +104,19 @@ describe("initializeWiSunConnector", () => {
     );
   });
 
+  test("キャッシュされたPan情報が空の場合はスキャンしてjoinを試みる", async () => {
+    implementFileExists(true);
+    vi.mocked(readFile).mockResolvedValue("");
+
+    vi.mocked(mockWiSunConnector.scan).mockResolvedValue(mockPanInfo);
+
+    await initializeWiSunConnector();
+
+    expect(mockWiSunConnector.join).toHaveBeenCalledTimes(1);
+    expect(mockWiSunConnector.scan).toHaveBeenCalledTimes(1);
+    expect(writeFile).toHaveBeenCalled();
+  });
+
   test("キャッシュされたPan情報で接続に失敗するとスキャンしてjoinを試みる", async () => {
     implementFileExists(true);
     vi.mocked(readFile).mockResolvedValue(
