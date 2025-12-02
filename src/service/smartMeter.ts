@@ -56,9 +56,12 @@ export default async function initializeSmartMeterClient(): Promise<SmartMeterCl
 
         if (responseData.esv === 0x72) {
           // 正常終了
-          logger.debug(
-            `[SmartMeter] Receive message: ${responseData.toString()}`,
-          );
+          /* v8 ignore if -- @preserve */
+          if (logger.isDebugEnabled()) {
+            logger.debug(
+              `[SmartMeter] Receive message: ${responseData.toString()}`,
+            );
+          }
         } else {
           // エラー
           logger.error(
@@ -249,7 +252,7 @@ async function loadCachedPanInfo(path: string): Promise<PanInfo | undefined> {
   }
 
   try {
-    const cachedPanInfoText = await readFile(path, "utf8");
+    const cachedPanInfoText = await readFile(path, "ascii");
     const panInfo: unknown = JSON.parse(cachedPanInfoText);
 
     if (!isPanInfo(panInfo)) {

@@ -58,7 +58,10 @@ describe("createWiSunConnector", () => {
 
     const wiSunConnector = createWiSunConnector("BP35C2", "devicePath");
 
-    expect(MockBP35Connector).toHaveBeenCalledExactlyOnceWith("devicePath", 0);
+    expect(MockBP35Connector).toHaveBeenCalledExactlyOnceWith(
+      "devicePath",
+      true,
+    );
     expect(wiSunConnector).toBeInstanceOf(BP35Connector);
   });
 
@@ -67,7 +70,10 @@ describe("createWiSunConnector", () => {
 
     const wiSunConnector = createWiSunConnector("BP35A1", "devicePath");
 
-    expect(MockBP35Connector).toHaveBeenCalledExactlyOnceWith("devicePath");
+    expect(MockBP35Connector).toHaveBeenCalledExactlyOnceWith(
+      "devicePath",
+      false,
+    );
     expect(wiSunConnector).toBeInstanceOf(BP35Connector);
   });
 

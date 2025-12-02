@@ -40,7 +40,10 @@ export default async function setupMqttDeviceManager(
       try {
         const epcs = [...new Set(entities.map((e) => e.epc))];
         const echonetData = await smartMeterClient.fetchData(epcs);
-        logger.debug(`Receive message: ${echonetData.toString()}`);
+        /* v8 ignore if -- @preserve */
+        if (logger.isDebugEnabled()) {
+          logger.debug(`Receive message: ${echonetData.toString()}`);
+        }
         for (const property of echonetData.properties) {
           for (const entity of entities) {
             if (entity.epc !== property.epc) continue;

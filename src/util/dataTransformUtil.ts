@@ -1,5 +1,5 @@
 export function hex2ascii(hexString: string): string {
-  return Buffer.from(hexString, "hex").toString("utf-8");
+  return Buffer.from(hexString, "hex").toString("ascii");
 }
 
 export function getDecimalPlaces(value: number): number {
