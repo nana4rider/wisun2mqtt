@@ -23,7 +23,12 @@ type PublicWiSunConnector = WiSunConnector & {
   ipv6Address: string;
   panInfo: PanInfo;
   sendCommand: (
-    command: string | Buffer,
+    command: Buffer,
+    expected?: (data: string) => boolean,
+    timeout?: number,
+  ) => Promise<string[]>;
+  sendTextCommand: (
+    command: (string | undefined)[],
     expected?: (data: string) => boolean,
     timeout?: number,
   ) => Promise<string[]>;
@@ -34,7 +39,7 @@ function createConnector(suportSide = true) {
   MockBinding.createPort(devicePath, { echo: true, record: true });
   const connector = new BP35Connector(
     devicePath,
-    suportSide ? 0 : undefined,
+    suportSide,
     MockBinding,
   ) as unknown as PublicWiSunConnector;
   return connector;
@@ -42,7 +47,7 @@ function createConnector(suportSide = true) {
 
 function emitText(mockPort: SerialPort, text: string) {
   assert(mockPort.port instanceof MockPortBinding);
-  mockPort.port.emitData(Buffer.from(`${text}\r\n`, "utf8"));
+  mockPort.port.emitData(Buffer.from(`${text}\r\n`, "ascii"));
 }
 
 function emitBuffer(mockPort: SerialPort, buffer: Buffer) {
@@ -61,7 +66,7 @@ describe("setAuth", () => {
 
     const commands: string[] = [];
     mockParser.on("data", (data: Buffer) => {
-      const command = data.toString("utf8");
+      const command = data.toString("ascii");
       assert(mockPort.port instanceof MockPortBinding);
 
       if (command.match(/^(SKSETRBID|SKSETPWD)/)) {
@@ -88,7 +93,7 @@ describe("join", () => {
 
     const { serialPort: mockPort, parser: mockParser } = connector;
     mockParser.on("data", (data: Buffer) => {
-      const command = data.toString("utf8");
+      const command = data.toString("ascii");
 
       if (command.match(/^SKSREG/)) {
         commands.push(command);
@@ -149,7 +154,7 @@ describe("scan", () => {
 
     const { serialPort: mockPort, parser: mockParser } = connector;
     mockParser.on("data", (data: Buffer) => {
-      const command = data.toString("utf8");
+      const command = data.toString("ascii");
 
       if (command.match(/^SKSCAN/)) {
         commands.push(command);
@@ -275,7 +280,7 @@ describe("sendEchonetLite", () => {
     const { serialPort: mockPort, parser: mockParser } = connector;
 
     mockParser.on("data", (data: Buffer) => {
-      const command = data.toString("utf8");
+      const command = data.toString("ascii");
 
       if (command.match(/^SKSENDTO/)) {
         commands.push(data);
@@ -318,7 +323,7 @@ describe("sendEchonetLite", () => {
       Buffer.concat([
         Buffer.from(
           "SKSENDTO 1 0000:0000:0000:0200:1111:2222:3333 0E1A 1 0 001E ",
-          "utf-8",
+          "ascii",
         ),
         data.toBuffer(),
       ]),
@@ -371,7 +376,7 @@ describe("sendEchonetLite", () => {
       Buffer.concat([
         Buffer.from(
           "SKSENDTO 1 0000:0000:0000:0200:1111:2222:3333 0E1A 1 001E ",
-          "utf-8",
+          "ascii",
         ),
         data.toBuffer(),
       ]),
@@ -380,67 +385,19 @@ describe("sendEchonetLite", () => {
 });
 
 describe("setupSerialEventHandlers", () => {
-  test("引数なしのテキストコマンドをデバッグログ出力する", async () => {
-    const logDebugSpy = vi.spyOn(logger, "debug");
-
-    const connector = createConnector();
-    const { serialPort: mockPort, parser: mockParser } = connector;
-    mockParser.on("data", (data: Buffer) => {
-      const command = data.toString("utf8");
-      if (command.match(/^SKTEST/)) {
-        emitText(mockPort, "OK");
-      }
-    });
-
-    await connector.sendCommand("SKTEST");
-
-    expect(logDebugSpy).toHaveBeenNthCalledWith(
-      1,
-      "Sending command: SKTEST<CRLF>",
-    );
-    expect(logDebugSpy).toHaveBeenNthCalledWith(
-      2,
-      "Received TEXT data from SerialPort: SKTEST",
-    );
-  });
-
-  test("引数ありのテキストコマンドをデバッグログ出力する", async () => {
-    const logDebugSpy = vi.spyOn(logger, "debug");
-
-    const connector = createConnector();
-    const { serialPort: mockPort, parser: mockParser } = connector;
-    mockParser.on("data", (data: Buffer) => {
-      const command = data.toString("utf8");
-      if (command.match(/^SKTEST/)) {
-        emitText(mockPort, "OK");
-      }
-    });
-
-    await connector.sendCommand("SKTEST 1 2 3");
-
-    expect(logDebugSpy).toHaveBeenNthCalledWith(
-      1,
-      "Sending command: SKTEST 1 2 3<CRLF>",
-    );
-    expect(logDebugSpy).toHaveBeenNthCalledWith(
-      2,
-      "Received TEXT data from SerialPort: SKTEST 1 2 3",
-    );
-  });
-
   test("不正なERXUDPを受け取った場合エラーログを出力", async () => {
     const logErrorSpy = vi.spyOn(logger, "error");
 
     const connector = createConnector();
     const { serialPort: mockPort, parser: mockParser } = connector;
     mockParser.on("data", (data: Buffer) => {
-      const command = data.toString("utf8");
+      const command = data.toString("ascii");
       if (command.match(/^SKSENDTO/)) {
         emitText(mockPort, "ERXUDP unknown");
       }
     });
 
-    await connector.sendCommand("SKSENDTO xxxx", (data) =>
+    await connector.sendTextCommand(["SKSENDTO", "xxxx"], (data) =>
       data.startsWith("ERXUDP"),
     );
 
@@ -455,7 +412,7 @@ describe("setupSerialEventHandlers", () => {
     const connector = createConnector();
     const { serialPort: mockPort, parser: mockParser } = connector;
     mockParser.on("data", (data: Buffer) => {
-      const command = data.toString("utf8");
+      const command = data.toString("ascii");
       if (command.match(/^SKSENDTO/)) {
         emitText(
           mockPort,
@@ -464,7 +421,7 @@ describe("setupSerialEventHandlers", () => {
       }
     });
 
-    await connector.sendCommand("SKSENDTO xxxx", (data) =>
+    await connector.sendTextCommand(["SKSENDTO", "xxxx"], (data) =>
       data.startsWith("ERXUDP"),
     );
 
@@ -481,7 +438,7 @@ describe("setupSerialEventHandlers", () => {
     const connector = createConnector();
     const { serialPort: mockPort, parser: mockParser } = connector;
     mockParser.on("data", (data: Buffer) => {
-      const command = data.toString("utf8");
+      const command = data.toString("ascii");
       if (command.match(/^SKSENDTO/)) {
         emitText(
           mockPort,
@@ -490,7 +447,7 @@ describe("setupSerialEventHandlers", () => {
       }
     });
 
-    await connector.sendCommand("SKSENDTO xxxx", (data) =>
+    await connector.sendTextCommand(["SKSENDTO", "xxxx"], (data) =>
       data.startsWith("ERXUDP"),
     );
 
@@ -510,7 +467,7 @@ describe("setupSerialEventHandlers", () => {
     const { serialPort: mockPort, parser: mockParser } = connector;
 
     mockParser.on("data", (data: Buffer) => {
-      const command = data.toString("utf8");
+      const command = data.toString("ascii");
       if (command.match(/^SKSENDTO/)) {
         // sideあり
         emitBuffer(
@@ -518,10 +475,10 @@ describe("setupSerialEventHandlers", () => {
           Buffer.concat([
             Buffer.from(
               "ERXUDP FE80:0000:0000:0000:0000:0000:0000:0000 FE80:0000:0000:0000:0000:0000:0000:0000 0E1A 0E1A 0000111122223333 0 0 002A ",
-              "utf8",
+              "ascii",
             ),
             mockMessage,
-            Buffer.from("\r\n", "utf-8"),
+            Buffer.from("\r\n", "ascii"),
           ]),
         );
         // sideなし
@@ -530,10 +487,10 @@ describe("setupSerialEventHandlers", () => {
           Buffer.concat([
             Buffer.from(
               "ERXUDP FE80:0000:0000:0000:0000:0000:0000:0000 FE80:0000:0000:0000:0000:0000:0000:0000 0E1A 0E1A 0000111122223333 0 002A ",
-              "utf8",
+              "ascii",
             ),
             mockMessage,
-            Buffer.from("\r\n", "utf-8"),
+            Buffer.from("\r\n", "ascii"),
           ]),
         );
         emitText(mockPort, "TESTEND");
@@ -543,8 +500,9 @@ describe("setupSerialEventHandlers", () => {
     const messageSpy = vi.fn();
     connector.on("message", messageSpy);
 
-    const sendPromise = connector.sendCommand("SKSENDTO xxxx", (data) =>
-      data.startsWith("TESTEND"),
+    const sendPromise = connector.sendTextCommand(
+      ["SKSENDTO", "xxxx"],
+      (data) => data.startsWith("TESTEND"),
     );
     setImmediate(() => emitText(mockPort, ""));
     await sendPromise;
@@ -574,54 +532,37 @@ describe("sendCommand", () => {
     const connector = createConnector();
     const { serialPort: mockPort, parser: mockParser } = connector;
     mockParser.on("data", (data: Buffer) => {
-      const command = data.toString("utf8");
+      const command = data.toString("ascii");
       if (command.match(/^SKTEST/)) {
         emitText(mockPort, "OK");
       }
     });
 
-    const actual = connector.sendCommand("SKTEST");
+    const actual = connector.sendTextCommand(["SKTEST"]);
 
     await expect(actual).resolves.not.toThrow();
   });
 
-  test("FAILで想定内のエラーコードが返ってくると、メッセージを付与して例外をスローする", async () => {
+  test("FAILが返ってくると例外をスローする", async () => {
     const connector = createConnector();
     const { serialPort: mockPort, parser: mockParser } = connector;
     mockParser.on("data", (data: Buffer) => {
-      const command = data.toString("utf8");
+      const command = data.toString("ascii");
       if (command.match(/^SKTEST/)) {
         emitText(mockPort, "FAIL ER04");
       }
     });
 
-    const actual = connector.sendCommand("SKTEST");
+    const actual = connector.sendTextCommand(["SKTEST"]);
 
-    await expect(actual).rejects.toThrow(
-      "[ER04] 指定されたコマンドがサポートされていない",
-    );
-  });
-
-  test("FAILで想定外のエラーコードが返ってくると、メッセージを付与せず例外をスローする", async () => {
-    const connector = createConnector();
-    const { serialPort: mockPort, parser: mockParser } = connector;
-    mockParser.on("data", (data: Buffer) => {
-      const command = data.toString("utf8");
-      if (command.match(/^SKTEST/)) {
-        emitText(mockPort, "FAIL UNKNOWN");
-      }
-    });
-
-    const actual = connector.sendCommand("SKTEST");
-
-    await expect(actual).rejects.toThrow("FAIL UNKNOWN");
+    await expect(actual).rejects.toThrow("Command failed. errorCode:ER04");
   });
 
   test("expectedの条件を満たすまでのレスポンスを受け取れる", async () => {
     const connector = createConnector();
     const { serialPort: mockPort, parser: mockParser } = connector;
     mockParser.on("data", (data: Buffer) => {
-      const command = data.toString("utf8");
+      const command = data.toString("ascii");
       if (command.match(/^SKTEST/)) {
         emitText(mockPort, "FOO");
         emitText(mockPort, "BAR");
@@ -629,7 +570,7 @@ describe("sendCommand", () => {
       }
     });
 
-    const actual = await connector.sendCommand("SKTEST");
+    const actual = await connector.sendTextCommand(["SKTEST"]);
 
     // エコーバックを含む
     expect(actual).toEqual(["SKTEST", "FOO", "BAR", "OK"]);
@@ -639,23 +580,23 @@ describe("sendCommand", () => {
     const connector = createConnector();
     const { serialPort: mockPort, parser: mockParser } = connector;
     mockParser.on("data", (data: Buffer) => {
-      const command = data.toString("utf8");
+      const command = data.toString("ascii");
       if (command.match(/^SKTEST/)) {
         emitText(mockPort, "OK");
       }
     });
 
-    await connector.sendCommand("SKTEST");
+    await connector.sendTextCommand(["SKTEST"]);
 
     assert(mockPort.port instanceof MockPortBinding);
-    expect(mockPort.port.recording.toString("utf8")).toBe("SKTEST\r\n");
+    expect(mockPort.port.recording.toString("ascii")).toBe("SKTEST\r\n");
   });
 
   test("バイナリコマンドはCRLFを付与しない", async () => {
     const connector = createConnector();
     const { serialPort: mockPort, parser: mockParser } = connector;
     mockParser.on("data", (data: Buffer) => {
-      const command = data.toString("utf8");
+      const command = data.toString("ascii");
       if (command.match(/^SKTEST/)) {
         emitText(mockPort, "OK");
       }
@@ -663,7 +604,7 @@ describe("sendCommand", () => {
 
     try {
       await connector.sendCommand(
-        Buffer.from("SKTEST", "utf8"),
+        Buffer.from("SKTEST", "ascii"),
         undefined,
         100,
       );
@@ -672,7 +613,7 @@ describe("sendCommand", () => {
     }
 
     assert(mockPort.port instanceof MockPortBinding);
-    expect(mockPort.port.recording.toString("utf8")).toBe("SKTEST");
+    expect(mockPort.port.recording.toString("ascii")).toBe("SKTEST");
   });
 
   test("write処理でエラーが発生すると例外をスローする", async () => {
@@ -687,7 +628,7 @@ describe("sendCommand", () => {
       return false;
     };
 
-    const actual = connector.sendCommand("SKTEST", undefined);
+    const actual = connector.sendTextCommand(["SKTEST"], undefined);
 
     await expect(actual).rejects.toThrow();
 

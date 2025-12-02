@@ -1,14 +1,19 @@
 import { Buffer } from "buffer";
 
-const ECHONET_HEADER = 0x1081;
+const ECHONET_HEADER = Buffer.from([0x10, 0x81]);
 
 export class EchonetData {
   private constructor(
-    public readonly tid: number, // トランザクションID
-    public readonly seoj: number, // 送信元オブジェクト
-    public readonly deoj: number, // 宛先オブジェクト
-    public readonly esv: number, // サービスコード
-    public readonly properties: EchonetProperty[], // プロパティリスト
+    /** トランザクションID */
+    public readonly tid: number,
+    /** 送信元オブジェクト */
+    public readonly seoj: number,
+    /** 宛先オブジェクト */
+    public readonly deoj: number,
+    /** サービスコード */
+    public readonly esv: number,
+    /** プロパティリスト */
+    public readonly properties: EchonetProperty[],
   ) {}
 
   static create({
@@ -27,14 +32,13 @@ export class EchonetData {
       edt?: number | bigint;
     }[];
   }) {
-    const randomTid = Math.floor(Math.random() * 0xffff); // 0x0000 〜 0xffff の範囲で生成
     return new EchonetData(
-      tid ?? randomTid,
+      tid ?? Math.floor(Math.random() * 0xffff), // 0x0000 〜 0xffff の範囲で生成
       seoj,
       deoj,
       esv,
       properties.map(({ epc, edt }) => {
-        let edtBigInt;
+        let edtBigInt: bigint;
         if (typeof edt === "number") {
           if (!Number.isInteger(edt) || edt < 0) {
             throw new TypeError(`EDT must be a positive integer, got: ${edt}`);
@@ -62,7 +66,7 @@ export class EchonetData {
   }
 
   static parse(frame: Buffer): EchonetData {
-    if (frame.readUInt16BE(0) !== ECHONET_HEADER) {
+    if (!frame.subarray(0, ECHONET_HEADER.length).equals(ECHONET_HEADER)) {
       throw new Error("Invalid header");
     }
     if (frame.length < 12) {
@@ -162,7 +166,7 @@ export class EchonetData {
     );
 
     return Buffer.concat([
-      Buffer.from([0x10, 0x81]), // ECHONET Lite 固定ヘッダー
+      ECHONET_HEADER, // ECHONET Lite 固定ヘッダー
       tidBuffer,
       seojBuffer,
       deojBuffer,
@@ -193,7 +197,10 @@ export class EchonetData {
 }
 
 export interface EchonetProperty {
-  epc: number; // プロパティコード
-  pdc: number; // データ長
-  edt: bigint; // プロパティデータ
+  /** プロパティコード */
+  epc: number;
+  /** データ長 */
+  pdc: number;
+  /** プロパティデータ */
+  edt: bigint;
 }

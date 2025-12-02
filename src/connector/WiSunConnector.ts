@@ -97,10 +97,10 @@ export function createWiSunConnector(
     case "BP35C2":
     case "BP35C0":
     case "RS-WSUHA-P":
-      return new BP35Connector(devicePath, 0);
+      return new BP35Connector(devicePath, true);
     case "BP35A1":
     case "WSR35A1-00":
-      return new BP35Connector(devicePath);
+      return new BP35Connector(devicePath, false);
     default: {
       const unsupportedModel: never = model;
       throw new Error(`Unsupported model: ${String(unsupportedModel)}`);
