@@ -1,11 +1,11 @@
 import type { PanInfo, WiSunConnector } from "@/connector/WiSunConnector";
-import createWiSunConnector from "@/connector/WiSunConnector";
+import { createWiSunConnector, isPanInfo } from "@/connector/WiSunConnector";
 import { EchonetData } from "@/echonet/EchonetData";
 import { convertUnitForCumulativeElectricEnergy } from "@/echonet/echonetHelper";
 import type { Entity } from "@/entity";
 import env from "@/env";
 import logger from "@/logger";
-import { getDecimalPlaces, parseJson } from "@/util/dataTransformUtil";
+import { getDecimalPlaces } from "@/util/dataTransformUtil";
 import assert from "assert";
 import fileExists from "file-exists";
 import { readFile, writeFile } from "fs/promises";
@@ -215,16 +215,13 @@ export async function initializeWiSunConnector() {
     await wiSunConnector.setAuth(env.ROUTE_B_ID, env.ROUTE_B_PASSWORD);
 
     // Pan情報のキャッシュがあれば使う
-    if (await fileExists(env.PAN_INFO_PATH)) {
+    const cachedPanInfo = await loadCachedPanInfo(env.PAN_INFO_PATH);
+    if (cachedPanInfo) {
       try {
-        const cachedPanInfoText = await readFile(env.PAN_INFO_PATH, "utf8");
-        if (cachedPanInfoText.length !== 0) {
-          const panInfo: PanInfo = parseJson(cachedPanInfoText);
-          await wiSunConnector.join(panInfo);
-          logger.info("[SmartMeter] キャッシュされたPan情報で接続成功");
+        await wiSunConnector.join(cachedPanInfo);
+        logger.info("[SmartMeter] キャッシュされたPan情報で接続成功");
 
-          return wiSunConnector;
-        }
+        return wiSunConnector;
       } catch (err) {
         logger.warn("[SmartMeter] キャッシュされたPan情報で接続失敗");
         logger.debug("err:", err);
@@ -240,5 +237,28 @@ export async function initializeWiSunConnector() {
     logger.error(`initializeWiSunConnector:`, err);
     await wiSunConnector.close();
     throw err;
+  }
+}
+
+async function loadCachedPanInfo(path: string): Promise<PanInfo | undefined> {
+  if (!(await fileExists(path))) {
+    return undefined;
+  }
+
+  try {
+    const cachedPanInfoText = await readFile(path, "utf8");
+    const panInfo: unknown = JSON.parse(cachedPanInfoText);
+
+    if (!isPanInfo(panInfo)) {
+      logger.warn("[SmartMeter] Pan情報ファイルが不正");
+
+      return undefined;
+    }
+
+    return panInfo;
+  } catch (_err) {
+    logger.warn(`[SmartMeter] Pan情報ファイル (${path}) の読み込み中にエラー`);
+
+    return undefined;
   }
 }

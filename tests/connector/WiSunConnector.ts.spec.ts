@@ -1,8 +1,52 @@
 import { BP35Connector } from "@/connector/BP35Connector";
-import createWiSunConnector from "@/connector/WiSunConnector";
+import { createWiSunConnector, isPanInfo } from "@/connector/WiSunConnector";
 import type { WiSunConnectorModel } from "@/connector/WiSunConnectorModel";
 
 vi.mock("@/connector/BP35Connector");
+
+describe("isPanInfo", () => {
+  beforeEach(() => {
+    vi.resetAllMocks();
+  });
+
+  test("非オブジェクトである", () => {
+    const obj = 123;
+
+    const result = isPanInfo(obj);
+
+    expect(result).toBe(false);
+  });
+
+  test("nullである", () => {
+    const obj = null;
+
+    const result = isPanInfo(obj);
+
+    expect(result).toBe(false);
+  });
+
+  test("必要なキーが揃っていない", () => {
+    const obj = {
+      Addr: "Addr",
+    };
+
+    const result = isPanInfo(obj);
+
+    expect(result).toBe(false);
+  });
+
+  test("必要なキーが揃っている", () => {
+    const obj = {
+      Channel: "00",
+      PanID: "FFFF",
+      Addr: "0000111122223333",
+    };
+
+    const result = isPanInfo(obj);
+
+    expect(result).toBe(true);
+  });
+});
 
 describe("createWiSunConnector", () => {
   beforeEach(() => {

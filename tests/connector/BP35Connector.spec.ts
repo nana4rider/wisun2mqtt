@@ -6,10 +6,9 @@ import { MockBinding, MockPortBinding } from "@serialport/binding-mock";
 import assert from "assert";
 import type { ReadlineParser, SerialPort } from "serialport";
 
-const mockPanInfo: PanInfo = {
+const mockPanInfo = {
   Channel: "00",
-  "Channel Page": "00",
-  "Pan ID": "FFFF",
+  PanID: "FFFF",
   Addr: "0000111122223333",
   LQI: "FF",
   Side: "0",

@@ -1,7 +1,10 @@
-import type { PanInfo, WiSunConnector } from "@/connector/WiSunConnector";
+import {
+  isPanInfo,
+  type PanInfo,
+  type WiSunConnector,
+} from "@/connector/WiSunConnector";
 import logger from "@/logger";
-import type { BindingInterface } from "@serialport/bindings-cpp";
-import { autoDetect } from "@serialport/bindings-cpp";
+import { autoDetect, type BindingInterface } from "@serialport/bindings-cpp";
 import type { ReadlineParser } from "@serialport/parser-readline";
 import { SerialPortStream } from "@serialport/stream";
 import assert from "assert";
@@ -22,7 +25,7 @@ const SCAN_TIMEOUT =
 const JOIN_TIMEOUT = 38000 + COMMAND_TIMEOUT;
 
 const CRLF = "\r\n";
-const HEX_ECHONET_PORT = "0E1A"; // 3610
+const HEX_ECHONET_PORT = "0E1A";
 
 const ErrorMessages = new Map<string, string>([
   // ER01-ER03 Reserved
@@ -140,15 +143,14 @@ export class BP35Connector extends Emitter<Events> implements WiSunConnector {
     expected: (data: string) => boolean = (data) => data.startsWith("OK"),
     timeout: number = COMMAND_TIMEOUT,
   ): Promise<string[]> {
-    let sendCommand, logCommand;
+    let sendCommand: string | Buffer;
     if (typeof command === "string") {
       sendCommand = command + CRLF;
-      logCommand = command + "<CRLF>";
+      logger.debug(`Sending command: ${command}<CRLF>`);
     } else {
       sendCommand = command;
-      logCommand = sendCommand.toString("utf-8");
+      logger.debug(`Sending command: ${sendCommand.toString("utf-8")}`);
     }
-    logger.debug(`Sending command: ${logCommand}`);
 
     // データ受信待機の開始（送信前）
     const responses: string[] = [];
@@ -223,7 +225,7 @@ export class BP35Connector extends Emitter<Events> implements WiSunConnector {
   async join(panInfo: PanInfo): Promise<void> {
     logger.info("Configuring Wi-SUN connection...");
     await this.sendCommand(`SKSREG S2 ${panInfo.Channel}`);
-    await this.sendCommand(`SKSREG S3 ${panInfo["Pan ID"]}`);
+    await this.sendCommand(`SKSREG S3 ${panInfo.PanID}`);
     const [_echo, ipv6Address] = await this.sendCommand(
       `SKLL64 ${panInfo.Addr}`,
       (data) => !data.startsWith("SKLL64"),
@@ -251,20 +253,21 @@ export class BP35Connector extends Emitter<Events> implements WiSunConnector {
     );
 
     const panInfo: Record<string, string> = {};
-    responses.forEach((res) => {
+    for (const res of responses) {
       const paninfoMatcher = res.match(
         /^ {2}(?<key>[a-zA-Z ]+):(?<value>[A-Z0-9]+)/,
       );
-      if (!paninfoMatcher) return;
+      if (!paninfoMatcher) continue;
       assert(paninfoMatcher.groups);
-      panInfo[paninfoMatcher.groups.key] = paninfoMatcher.groups.value;
-    });
-    if (Object.values(panInfo).length === 0) {
+      const key = paninfoMatcher.groups.key.replaceAll(" ", "");
+      panInfo[key] = paninfoMatcher.groups.value;
+    }
+    if (!isPanInfo(panInfo)) {
       return undefined;
     }
 
     logger.info("PAN scan completed successfully");
-    return panInfo as PanInfo;
+    return panInfo;
   }
 
   /** @inheritdoc */

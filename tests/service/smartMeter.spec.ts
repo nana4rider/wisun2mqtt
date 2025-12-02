@@ -1,4 +1,4 @@
-import type { PanInfo, WiSunConnector } from "@/connector/WiSunConnector";
+import type { WiSunConnector } from "@/connector/WiSunConnector";
 import { EchonetData } from "@/echonet/EchonetData";
 import env from "@/env";
 import logger from "@/logger";
@@ -24,9 +24,13 @@ const mockWiSunConnector: WiSunConnector = {
   close: vi.fn(),
 };
 
-vi.mock("@/connector/WiSunConnector", () => ({
-  default: () => mockWiSunConnector,
-}));
+vi.mock("@/connector/WiSunConnector", async () => {
+  const actual = await vi.importActual("@/connector/WiSunConnector");
+  return {
+    ...actual,
+    createWiSunConnector: () => mockWiSunConnector,
+  };
+});
 
 vi.mock("file-exists", () => ({
   default: vi.fn(),
@@ -38,10 +42,10 @@ vi.mock("p-event", () => ({
   pEvent: vi.fn(),
 }));
 
-const mockPanInfo: PanInfo = {
+const mockPanInfo = {
   Channel: "00",
-  "Channel Page": "00",
-  "Pan ID": "FFFF",
+  ChannelPage: "00",
+  PanID: "FFFF",
   Addr: "0000111122223333",
   LQI: "FF",
   Side: "0",
@@ -104,7 +108,7 @@ describe("initializeWiSunConnector", () => {
     );
   });
 
-  test("キャッシュされたPan情報が空の場合はスキャンしてjoinを試みる", async () => {
+  test("キャッシュされたPan情報がJSONではない場合はスキャンしてjoinを試みる", async () => {
     implementFileExists(true);
     vi.mocked(readFile).mockResolvedValue("");
 
@@ -117,11 +121,22 @@ describe("initializeWiSunConnector", () => {
     expect(writeFile).toHaveBeenCalled();
   });
 
+  test("キャッシュされたPan情報が不正(JSONではあるがプロパティが不足)な場合はスキャンしてjoinを試みる", async () => {
+    implementFileExists(true);
+    vi.mocked(readFile).mockResolvedValue("{}");
+
+    vi.mocked(mockWiSunConnector.scan).mockResolvedValue(mockPanInfo);
+
+    await initializeWiSunConnector();
+
+    expect(mockWiSunConnector.join).toHaveBeenCalledTimes(1);
+    expect(mockWiSunConnector.scan).toHaveBeenCalledTimes(1);
+    expect(writeFile).toHaveBeenCalled();
+  });
+
   test("キャッシュされたPan情報で接続に失敗するとスキャンしてjoinを試みる", async () => {
     implementFileExists(true);
-    vi.mocked(readFile).mockResolvedValue(
-      JSON.stringify({ invalid: "panInfo" }),
-    );
+    vi.mocked(readFile).mockResolvedValue(JSON.stringify(mockPanInfo));
     vi.mocked(mockWiSunConnector.join).mockRejectedValueOnce(
       new Error("join failed"),
     );

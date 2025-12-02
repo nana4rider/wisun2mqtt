@@ -2,11 +2,24 @@ import { BP35Connector } from "@/connector/BP35Connector";
 import type { WiSunConnectorModel } from "@/connector/WiSunConnectorModel";
 
 export type PanInfo = {
-  Addr: string;
   Channel: string;
-  "Pan ID": string;
-  [key: string]: string | undefined;
+  PanID: string;
+  Addr: string;
 };
+
+export function isPanInfo(value: unknown): value is PanInfo {
+  if (typeof value !== "object" || value === null) {
+    return false;
+  }
+
+  const obj = value as Record<string, unknown>;
+
+  return (
+    typeof obj.Addr === "string" &&
+    typeof obj.Channel === "string" &&
+    typeof obj.PanID === "string"
+  );
+}
 
 export interface WiSunConnector {
   /**
@@ -75,7 +88,7 @@ export interface WiSunConnector {
  * @param devicePath シリアルポートのパス
  * @returns
  */
-export default function createWiSunConnector(
+export function createWiSunConnector(
   model: WiSunConnectorModel,
   devicePath: string,
 ): WiSunConnector {
