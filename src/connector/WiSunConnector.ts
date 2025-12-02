@@ -1,6 +1,7 @@
 import { BP35Connector } from "@/connector/BP35Connector";
 import type { WiSunConnectorModel } from "@/connector/WiSunConnectorModel";
 import type { EchonetData } from "@/echonet/EchonetData";
+import type { UnknownRecord } from "type-fest";
 
 export type PanInfo = {
   Channel: string;
@@ -13,7 +14,7 @@ export function isPanInfo(value: unknown): value is PanInfo {
     return false;
   }
 
-  const obj = value as Record<string, unknown>;
+  const obj = value as UnknownRecord;
 
   return (
     typeof obj.Addr === "string" &&

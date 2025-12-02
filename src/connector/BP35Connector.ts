@@ -18,12 +18,12 @@ const BAUDRATE = 115200;
 /** スキャン間隔 */
 const SCAN_DURATION = 6;
 /** コマンドのタイムアウト */
-const COMMAND_TIMEOUT = 3000;
+const DEFAULT_COMMAND_TIMEOUT = 3000;
 /** SKSCAN 2のタイムアウト スキャン時間 0.0096 sec * (2^<DURATION> + 1) */
 const SCAN_TIMEOUT =
-  0.0096 * 2 ** (SCAN_DURATION + 1) * 28 * 1000 + COMMAND_TIMEOUT;
+  0.0096 * 2 ** (SCAN_DURATION + 1) * 28 * 1000 + DEFAULT_COMMAND_TIMEOUT;
 /** SKJOINのタイムアウト */
-const JOIN_TIMEOUT = 38000 + COMMAND_TIMEOUT;
+const JOIN_TIMEOUT = 38000 + DEFAULT_COMMAND_TIMEOUT;
 /** ECHONET Lite ポート番号 */
 const ECHONET_PORT = 3610;
 /** CRLF */
@@ -164,11 +164,11 @@ export class BP35Connector extends Emitter<Events> implements WiSunConnector {
   async sendCommand(
     command: Buffer,
     expected: (data: string) => boolean = (data) => data.startsWith("OK"),
-    timeout: number = COMMAND_TIMEOUT,
+    timeout: number = DEFAULT_COMMAND_TIMEOUT,
   ): Promise<string[]> {
     /* v8 ignore if -- @preserve */
     if (logger.isDebugEnabled()) {
-      const commandString = command.toString("ascii").replace("\r\n", "<CRLF>");
+      const commandString = command.toString("ascii").replace(CRLF, "<CRLF>");
       logger.debug(`Sending command: ${commandString}`);
     }
 
@@ -231,9 +231,11 @@ export class BP35Connector extends Emitter<Events> implements WiSunConnector {
       ...this.side,
       hexDataLength,
     ];
-    const commandBuffer = Buffer.from(command.join(" ") + " ", "ascii");
+    const commandString = command.join(" ") + " ";
 
-    await this.sendCommand(Buffer.concat([commandBuffer, dataBuffer]));
+    await this.sendCommand(
+      Buffer.concat([Buffer.from(commandString, "ascii"), dataBuffer]),
+    );
   }
 
   private toHex(value: number, width: number): string {
@@ -291,6 +293,7 @@ export class BP35Connector extends Emitter<Events> implements WiSunConnector {
       );
       if (!paninfoMatcher) continue;
       assert(paninfoMatcher.groups);
+      // "Pan ID" とキー名にスペースが含まれるが、扱いやすくするため削除する
       const key = paninfoMatcher.groups.key.replaceAll(" ", "");
       panInfo[key] = paninfoMatcher.groups.value;
     }
@@ -304,20 +307,17 @@ export class BP35Connector extends Emitter<Events> implements WiSunConnector {
 
   /** @inheritdoc */
   async scan(maxRetries: number): Promise<PanInfo> {
-    let retries = 0;
-    let panInfo: PanInfo | undefined = undefined;
-    while ((panInfo = await this.scanInternal()) === undefined) {
-      retries++;
-      if (retries >= maxRetries) {
-        logger.error(`Scan failed after ${maxRetries} retries`);
-        throw new Error("Wi-SUN scan failed");
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      const panInfo = await this.scanInternal();
+      if (panInfo) {
+        return panInfo;
       }
 
-      // スキャン失敗時のリトライ処理
-      logger.warn(`Scan attempt ${retries}/${maxRetries} failed. Retrying...`);
+      logger.warn(`Scan attempt ${attempt}/${maxRetries} failed. Retrying...`);
     }
 
-    return panInfo;
+    logger.error(`Scan failed after ${maxRetries} retries`);
+    throw new Error("Wi-SUN scan failed");
   }
 
   /** @inheritdoc */
