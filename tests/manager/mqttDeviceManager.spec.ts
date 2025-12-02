@@ -55,7 +55,7 @@ describe("setupMqttDeviceManager", () => {
           },
         ],
       },
-      fetchData: vi.fn().mockResolvedValue([]),
+      fetchData: vi.fn().mockResolvedValue({ properties: [] }),
     };
 
     const { stopAutoRequest } = await setupMqttDeviceManager(
