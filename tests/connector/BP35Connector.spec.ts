@@ -188,7 +188,7 @@ describe("scan", () => {
     expect(commands).toEqual(["SKSCAN 2 FFFFFFFF 6"]);
   });
 
-  test("[scanInternal] スキャン結果があった場合はPan情報を返す", async () => {
+  test("[scanInternal] スキャン結果があった場合はPAN情報を返す", async () => {
     const connector = createConnector();
     initScan(connector, true);
     const resultPanInfo = await connector.scanInternal();
@@ -204,7 +204,7 @@ describe("scan", () => {
     expect(resultPanInfo).toBe(undefined);
   });
 
-  test("[scan] リトライ回数までにスキャンに成功した場合Pan情報を返す", async () => {
+  test("[scan] リトライ回数までにスキャンに成功した場合PAN情報を返す", async () => {
     const connector = createConnector();
     initScan(connector, false, true);
     const resultPanInfo = await connector.scan(3);

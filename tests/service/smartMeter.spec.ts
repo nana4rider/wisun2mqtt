@@ -83,7 +83,7 @@ describe("initializeWiSunConnector", () => {
     expect(wiSunConnector).toEqual(mockWiSunConnector);
   });
 
-  test("接続成功時、Pan情報がキャッシュされる", async () => {
+  test("接続成功時、PAN情報がキャッシュされる", async () => {
     implementFileExists(false);
     vi.mocked(mockWiSunConnector.scan).mockResolvedValue(mockPanInfo);
 
@@ -95,7 +95,7 @@ describe("initializeWiSunConnector", () => {
     );
   });
 
-  test("キャッシュされたPan情報で接続に成功するとスキャンしない", async () => {
+  test("キャッシュされたPAN情報で接続に成功するとスキャンしない", async () => {
     implementFileExists(true);
     vi.mocked(readFile).mockResolvedValue(JSON.stringify(mockPanInfo));
 
@@ -108,7 +108,7 @@ describe("initializeWiSunConnector", () => {
     );
   });
 
-  test("キャッシュされたPan情報がJSONではない場合はスキャンしてjoinを試みる", async () => {
+  test("キャッシュされたPAN情報がJSONではない場合はスキャンしてjoinを試みる", async () => {
     implementFileExists(true);
     vi.mocked(readFile).mockResolvedValue("");
 
@@ -121,7 +121,7 @@ describe("initializeWiSunConnector", () => {
     expect(writeFile).toHaveBeenCalled();
   });
 
-  test("キャッシュされたPan情報が不正(JSONではあるがプロパティが不足)な場合はスキャンしてjoinを試みる", async () => {
+  test("キャッシュされたPAN情報が不正(JSONではあるがプロパティが不足)な場合はスキャンしてjoinを試みる", async () => {
     implementFileExists(true);
     vi.mocked(readFile).mockResolvedValue("{}");
 
@@ -134,7 +134,7 @@ describe("initializeWiSunConnector", () => {
     expect(writeFile).toHaveBeenCalled();
   });
 
-  test("キャッシュされたPan情報で接続に失敗するとスキャンしてjoinを試みる", async () => {
+  test("キャッシュされたPAN情報で接続に失敗するとスキャンしてjoinを試みる", async () => {
     implementFileExists(true);
     vi.mocked(readFile).mockResolvedValue(JSON.stringify(mockPanInfo));
     vi.mocked(mockWiSunConnector.join).mockRejectedValueOnce(

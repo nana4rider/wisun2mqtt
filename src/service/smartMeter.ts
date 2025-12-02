@@ -220,16 +220,16 @@ export async function initializeWiSunConnector() {
   try {
     await wiSunConnector.setAuth(env.ROUTE_B_ID, env.ROUTE_B_PASSWORD);
 
-    // Pan情報のキャッシュがあれば使う
+    // PAN情報のキャッシュがあれば使う
     const cachedPanInfo = await loadCachedPanInfo(env.PAN_INFO_PATH);
     if (cachedPanInfo) {
       try {
         await wiSunConnector.join(cachedPanInfo);
-        logger.info("[SmartMeter] キャッシュされたPan情報で接続成功");
+        logger.info("[SmartMeter] キャッシュされたPAN情報で接続成功");
 
         return wiSunConnector;
       } catch (err) {
-        logger.warn("[SmartMeter] キャッシュされたPan情報で接続失敗");
+        logger.warn("[SmartMeter] キャッシュされたPAN情報で接続失敗");
         logger.debug("err:", err);
       }
     }
@@ -256,14 +256,14 @@ async function loadCachedPanInfo(path: string): Promise<PanInfo | undefined> {
     const panInfo: unknown = JSON.parse(cachedPanInfoText);
 
     if (!isPanInfo(panInfo)) {
-      logger.warn("[SmartMeter] Pan情報ファイルが不正");
+      logger.warn("[SmartMeter] PAN情報ファイルが不正");
 
       return undefined;
     }
 
     return panInfo;
   } catch (_err) {
-    logger.warn(`[SmartMeter] Pan情報ファイル (${path}) の読み込み中にエラー`);
+    logger.warn(`[SmartMeter] PAN情報ファイル (${path}) の読み込み中にエラー`);
 
     return undefined;
   }
