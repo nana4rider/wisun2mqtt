@@ -1,5 +1,7 @@
 import { Buffer } from "buffer";
 
+const ECHONET_HEADER = 0x1081;
+
 export class EchonetData {
   private constructor(
     public readonly tid: number, // トランザクションID
@@ -60,7 +62,7 @@ export class EchonetData {
   }
 
   static parse(frame: Buffer): EchonetData {
-    if (frame.readUInt16BE(0) !== 0x1081) {
+    if (frame.readUInt16BE(0) !== ECHONET_HEADER) {
       throw new Error("Invalid header");
     }
     if (frame.length < 12) {
