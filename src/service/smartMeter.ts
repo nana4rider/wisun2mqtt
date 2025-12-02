@@ -40,20 +40,19 @@ export default async function initializeSmartMeterClient(): Promise<SmartMeterCl
     const maxRetries = env.ECHONET_GET_RETRIES;
     for (let retries = 0; retries <= maxRetries; retries++) {
       try {
-        await wiSunConnector.sendEchonetLite(requestData.toBuffer());
+        await wiSunConnector.sendEchonetLite(requestData);
 
-        const responseData = await pEvent<"message", Buffer>(
+        const responseData = await pEvent<"message", EchonetData>(
           wiSunConnector,
           "message",
           {
-            filter: (frame) => {
-              const data = EchonetData.parse(frame);
+            filter: (data) => {
               // GET要求に対しての返信である
               return requestData.isValidResponse(data);
             },
             timeout: env.ECHONET_GET_TIMEOUT,
           },
-        ).then((frame) => EchonetData.parse(frame));
+        );
 
         if (responseData.esv === 0x72) {
           // 正常終了
@@ -133,7 +132,7 @@ export default async function initializeSmartMeterClient(): Promise<SmartMeterCl
     unit: "W",
     nativeValue: "int",
     epc: 0xe7,
-    converter: (value) => String(value),
+    converter: (value) => value.toString(),
   });
   entities.push({
     id: "instantaneousCurrentR",
@@ -162,7 +161,7 @@ export default async function initializeSmartMeterClient(): Promise<SmartMeterCl
     epc: 0xe8,
     converter: (value) => {
       const tPhase = value & 0xffff;
-      return tPhase === 0x7ffe ? "0" : (tPhase * 0.1).toFixed(1);
+      return tPhase === 0x7ffe ? "0.0" : (tPhase * 0.1).toFixed(1);
     },
   });
   entities.push({
@@ -175,8 +174,10 @@ export default async function initializeSmartMeterClient(): Promise<SmartMeterCl
     nativeValue: "float",
     unitPrecision: cumulativeUnitPrecision,
     epc: 0xe0,
-    converter: (value) =>
-      String(value * cumulativeMultiplier * cumulativeCoefficient),
+    converter: (value) => {
+      const kwhValue = value * cumulativeMultiplier * cumulativeCoefficient;
+      return kwhValue.toFixed(cumulativeUnitPrecision);
+    },
   });
   entities.push({
     id: "reverseDirectionCumulativeElectricEnergy",
@@ -188,8 +189,10 @@ export default async function initializeSmartMeterClient(): Promise<SmartMeterCl
     nativeValue: "float",
     unitPrecision: cumulativeUnitPrecision,
     epc: 0xe3,
-    converter: (value) =>
-      String(value * cumulativeMultiplier * cumulativeCoefficient),
+    converter: (value) => {
+      const kwhValue = value * cumulativeMultiplier * cumulativeCoefficient;
+      return kwhValue.toFixed(cumulativeUnitPrecision);
+    },
   });
 
   return {

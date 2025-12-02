@@ -1,5 +1,6 @@
 import { BP35Connector } from "@/connector/BP35Connector";
 import type { PanInfo, WiSunConnector } from "@/connector/WiSunConnector";
+import { EchonetData } from "@/echonet/EchonetData";
 import env from "@/env";
 import logger from "@/logger";
 import { MockBinding, MockPortBinding } from "@serialport/binding-mock";
@@ -293,10 +294,21 @@ describe("sendEchonetLite", () => {
     connector.ipv6Address = "0000:0000:0000:0200:1111:2222:3333";
     const commands = initSendEchonetLite(connector);
 
-    const data = Buffer.from(
-      "1081725a05ff010288016206800100880100e70100e80100e00100e30100",
-      "hex",
-    );
+    const data = EchonetData.create({
+      tid: 0x725a,
+      seoj: 0x05ff01,
+      deoj: 0x028801,
+      esv: 0x62,
+      properties: [
+        { epc: 0x80, edt: 0 },
+        { epc: 0x88, edt: 0 },
+        { epc: 0xe7, edt: 0 },
+        { epc: 0xe8, edt: 0 },
+        { epc: 0xe0, edt: 0 },
+        { epc: 0xe3, edt: 0 },
+      ],
+    });
+
     const sendPromise = connector.sendEchonetLite(data);
     // SKSENDTOはCRLFを送信しないが、実機ではエコーバックに含まれる
     setImmediate(() => emitText(mockPort, ""));
@@ -308,15 +320,22 @@ describe("sendEchonetLite", () => {
           "SKSENDTO 1 0000:0000:0000:0200:1111:2222:3333 0E1A 1 0 001E ",
           "utf-8",
         ),
-        data,
+        data.toBuffer(),
       ]),
     ]);
   });
 
-  test("IPv6アドレスが設定されていない場合例外をすろーする", async () => {
+  test("IPv6アドレスが設定されていない場合例外をスローする", async () => {
     const connector = createConnector();
 
-    const actual = connector.sendEchonetLite(Buffer.alloc(0));
+    const data = EchonetData.create({
+      seoj: 0x05ff01,
+      deoj: 0x028801,
+      esv: 0x62,
+      tid: 0x99,
+      properties: [],
+    });
+    const actual = connector.sendEchonetLite(data);
 
     await expect(actual).rejects.toThrow();
   });
@@ -328,10 +347,21 @@ describe("sendEchonetLite", () => {
     connector.ipv6Address = "0000:0000:0000:0200:1111:2222:3333";
     const commands = initSendEchonetLite(connector);
 
-    const data = Buffer.from(
-      "1081725a05ff010288016206800100880100e70100e80100e00100e30100",
-      "hex",
-    );
+    const data = EchonetData.create({
+      tid: 0x725a,
+      seoj: 0x05ff01,
+      deoj: 0x028801,
+      esv: 0x62,
+      properties: [
+        { epc: 0x80, edt: 0 },
+        { epc: 0x88, edt: 0 },
+        { epc: 0xe7, edt: 0 },
+        { epc: 0xe8, edt: 0 },
+        { epc: 0xe0, edt: 0 },
+        { epc: 0xe3, edt: 0 },
+      ],
+    });
+
     const sendPromise = connector.sendEchonetLite(data);
     // SKSENDTOはCRLFを送信しないが、実機ではエコーバックに含まれる
     setImmediate(() => emitText(mockPort, ""));
@@ -343,7 +373,7 @@ describe("sendEchonetLite", () => {
           "SKSENDTO 1 0000:0000:0000:0200:1111:2222:3333 0E1A 1 001E ",
           "utf-8",
         ),
-        data,
+        data.toBuffer(),
       ]),
     ]);
   });
@@ -439,12 +469,14 @@ describe("setupSerialEventHandlers", () => {
     );
 
     expect(logInfoSpy).toHaveBeenCalledExactlyOnceWith(
-      "Received data does not match ECHONET Lite format.",
+      expect.stringContaining(
+        "Received data does not match ECHONET Lite format.",
+      ),
     );
   });
 
   test("ヘッダが0x1081以外のメッセージを受け取った場合ログを出力", async () => {
-    const logInfoSpy = vi.spyOn(logger, "info");
+    const logErrorSpy = vi.spyOn(logger, "error");
 
     const connector = createConnector();
     const { serialPort: mockPort, parser: mockParser } = connector;
@@ -462,8 +494,9 @@ describe("setupSerialEventHandlers", () => {
       data.startsWith("ERXUDP"),
     );
 
-    expect(logInfoSpy).toHaveBeenCalledExactlyOnceWith(
-      "Received data does not match ECHONET Lite format.",
+    expect(logErrorSpy).toHaveBeenCalledExactlyOnceWith(
+      "Failed to parse message.",
+      expect.any(Error),
     );
   });
 
@@ -516,8 +549,9 @@ describe("setupSerialEventHandlers", () => {
     setImmediate(() => emitText(mockPort, ""));
     await sendPromise;
 
-    expect(messageSpy).toHaveBeenNthCalledWith(1, mockMessage);
-    expect(messageSpy).toHaveBeenNthCalledWith(2, mockMessage);
+    const mockEchonetData = EchonetData.parse(mockMessage);
+    expect(messageSpy).toHaveBeenNthCalledWith(1, mockEchonetData);
+    expect(messageSpy).toHaveBeenNthCalledWith(2, mockEchonetData);
   });
 
   test("シリアル通信でエラーが発生したときエラーログに出力する", () => {

@@ -1,6 +1,6 @@
 {
   "name": "wisun2mqtt",
-  "version": "2.1.1",
+  "version": "2.2.0",
   "author": "nana4rider",
   "license": "ISC",
   "main": "dist/index.js",

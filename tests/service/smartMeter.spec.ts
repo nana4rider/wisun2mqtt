@@ -189,7 +189,7 @@ describe("initializeSmartMeterClient", () => {
   });
 
   test("必要なエンティティが作成される", async () => {
-    const mockResponseBuffer = EchonetData.create({
+    const mockResponse = EchonetData.create({
       seoj: 0x028801,
       deoj: 0x05ff01,
       esv: 0x72,
@@ -199,9 +199,9 @@ describe("initializeSmartMeterClient", () => {
         { epc: 0xd3, edt: 0x1 },
         { epc: 0x8a, edt: 0x16 },
       ],
-    }).toBuffer();
+    });
 
-    vi.mocked(pEvent).mockResolvedValue(mockResponseBuffer);
+    vi.mocked(pEvent).mockResolvedValue(mockResponse);
 
     const { device } = await initializeSmartMeterClient();
     expect(device.deviceId).toBe("smartMeter_0000111122223333");
@@ -286,7 +286,7 @@ describe("initializeSmartMeterClient", () => {
   });
 
   test("converterが正しく動作している", async () => {
-    const mockResponseBuffer = EchonetData.create({
+    const mockResponse = EchonetData.create({
       seoj: 0x028801,
       deoj: 0x05ff01,
       esv: 0x72,
@@ -296,9 +296,9 @@ describe("initializeSmartMeterClient", () => {
         { epc: 0xd3, edt: 0x1 },
         { epc: 0x8a, edt: 0x16 },
       ],
-    }).toBuffer();
+    });
 
-    vi.mocked(pEvent).mockResolvedValue(mockResponseBuffer);
+    vi.mocked(pEvent).mockResolvedValue(mockResponse);
 
     const { device } = await initializeSmartMeterClient();
     // 動作状態
@@ -313,27 +313,27 @@ describe("initializeSmartMeterClient", () => {
     expect(device.entities[3].converter(0xaaaabbbb)).toBe("4369.0");
     // 瞬時電流計測値 (T相)
     expect(device.entities[4].converter(0xaaaabbbb)).toBe("4805.9");
-    expect(device.entities[4].converter(0xaaaa7ffe)).toBe("0");
+    expect(device.entities[4].converter(0xaaaa7ffe)).toBe("0.0");
     // 積算電力量計測値 (正方向計測値)
-    expect(device.entities[5].converter(100)).toBe("10");
+    expect(device.entities[5].converter(101)).toBe("10.1");
     // 積算電力量計測値 (逆方向計測値)
-    expect(device.entities[6].converter(200)).toBe("20");
+    expect(device.entities[6].converter(200)).toBe("20.0");
   });
 
   test("GET要求に対しての返信ではない場合filterがfalseを返す", async () => {
-    const mockResponseBuffer = EchonetData.create({
+    const mockResponse = EchonetData.create({
       seoj: 0x028801,
       deoj: 0x05ff01,
       esv: 0x72,
       tid: 0x99, // GET要求とは異なるtid
       properties: [],
-    }).toBuffer();
+    });
 
     let actual;
     vi.mocked(pEvent).mockImplementation(() => {
       const option = vi.mocked(pEvent).mock.calls[0][2];
       assert(typeof option?.filter === "function");
-      actual = option.filter(mockResponseBuffer);
+      actual = option.filter(mockResponse);
       return Promise.resolve() as CancelablePromise<void>;
     });
 
@@ -344,15 +344,15 @@ describe("initializeSmartMeterClient", () => {
   });
 
   test("GET要求に対しての返信がエラーの場合例外をスローする", async () => {
-    const mockResponseBuffer = EchonetData.create({
+    const mockResponse = EchonetData.create({
       seoj: 0x028801,
       deoj: 0x05ff01,
       esv: 0x52, // エラー応答
       tid: 0x00,
       properties: [],
-    }).toBuffer();
+    });
 
-    vi.mocked(pEvent).mockResolvedValue(mockResponseBuffer);
+    vi.mocked(pEvent).mockResolvedValue(mockResponse);
 
     const actual = initializeSmartMeterClient();
 
@@ -361,15 +361,15 @@ describe("initializeSmartMeterClient", () => {
 
   test("GET要求に対しての返信がエラーの場合、指定回数リトライされる", async () => {
     writableEnv.ECHONET_GET_RETRIES = 2;
-    const mockResponseBuffer = EchonetData.create({
+    const mockResponse = EchonetData.create({
       seoj: 0x028801,
       deoj: 0x05ff01,
       esv: 0x52, // エラー応答
       tid: 0x00,
       properties: [],
-    }).toBuffer();
+    });
 
-    vi.mocked(pEvent).mockResolvedValue(mockResponseBuffer);
+    vi.mocked(pEvent).mockResolvedValue(mockResponse);
 
     const actual = initializeSmartMeterClient();
 
@@ -378,7 +378,7 @@ describe("initializeSmartMeterClient", () => {
   });
 
   test("GET要求に対しての返信がエラーの場合、次回呼び出し時に再接続する", async () => {
-    const mockResponseSuccessBuffer = EchonetData.create({
+    const mockResponseSuccess = EchonetData.create({
       seoj: 0x028801,
       deoj: 0x05ff01,
       esv: 0x72,
@@ -388,19 +388,19 @@ describe("initializeSmartMeterClient", () => {
         { epc: 0xd3, edt: 0x1 },
         { epc: 0x8a, edt: 0x16 },
       ],
-    }).toBuffer();
-    const mockResponseFailureBuffer = EchonetData.create({
+    });
+    const mockResponseFailure = EchonetData.create({
       seoj: 0x028801,
       deoj: 0x05ff01,
       esv: 0x52,
       tid: 0x00,
       properties: [],
-    }).toBuffer();
+    });
 
     vi.mocked(pEvent)
-      .mockResolvedValueOnce(mockResponseSuccessBuffer)
-      .mockResolvedValueOnce(mockResponseFailureBuffer)
-      .mockResolvedValueOnce(mockResponseSuccessBuffer);
+      .mockResolvedValueOnce(mockResponseSuccess)
+      .mockResolvedValueOnce(mockResponseFailure)
+      .mockResolvedValueOnce(mockResponseSuccess);
 
     const { fetchData } = await initializeSmartMeterClient();
     await fetchData([0x00]).catch(() => {});
@@ -410,7 +410,7 @@ describe("initializeSmartMeterClient", () => {
   });
 
   test("closeメソッドを呼び出すとwiSunConnectorがクローズされる", async () => {
-    const mockResponseBuffer = EchonetData.create({
+    const mockResponse = EchonetData.create({
       seoj: 0x028801,
       deoj: 0x05ff01,
       esv: 0x72,
@@ -420,9 +420,9 @@ describe("initializeSmartMeterClient", () => {
         { epc: 0xd3, edt: 0x1 },
         { epc: 0x8a, edt: 0x16 },
       ],
-    }).toBuffer();
+    });
 
-    vi.mocked(pEvent).mockResolvedValue(mockResponseBuffer);
+    vi.mocked(pEvent).mockResolvedValue(mockResponse);
 
     const { close } = await initializeSmartMeterClient();
     await close();

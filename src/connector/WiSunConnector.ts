@@ -1,5 +1,6 @@
 import { BP35Connector } from "@/connector/BP35Connector";
 import type { WiSunConnectorModel } from "@/connector/WiSunConnectorModel";
+import type { EchonetData } from "@/echonet/EchonetData";
 
 export type PanInfo = {
   Channel: string;
@@ -28,15 +29,15 @@ export interface WiSunConnector {
    * @param event イベント名 ("message" または "error")
    * @param listener イベント発生時に呼び出されるリスナー関数
    */
-  on(event: "message", listener: (message: Buffer) => void): this;
+  on(event: "message", listener: (message: EchonetData) => void): this;
   on(event: "error", listener: (err: Error) => void): this;
 
   /**
    * ECHONET Lite データを送信します。
    *
-   * @param data 送信するデータ
+   * @param echonetData 送信するデータ
    */
-  sendEchonetLite(data: Buffer): Promise<void>;
+  sendEchonetLite(echonetData: EchonetData): Promise<void>;
 
   /**
    * Wi-SUN モジュールの認証情報を設定します。

@@ -3,6 +3,7 @@ import {
   type PanInfo,
   type WiSunConnector,
 } from "@/connector/WiSunConnector";
+import { EchonetData } from "@/echonet/EchonetData";
 import logger from "@/logger";
 import { autoDetect, type BindingInterface } from "@serialport/bindings-cpp";
 import type { ReadlineParser } from "@serialport/parser-readline";
@@ -25,7 +26,7 @@ const SCAN_TIMEOUT =
 const JOIN_TIMEOUT = 38000 + COMMAND_TIMEOUT;
 
 const CRLF = "\r\n";
-const HEX_ECHONET_PORT = "0E1A";
+const ECHONET_PORT = 3610;
 
 const ErrorMessages = new Map<string, string>([
   // ER01-ER03 Reserved
@@ -38,7 +39,7 @@ const ErrorMessages = new Map<string, string>([
 ]);
 
 type Events = {
-  message: [message: Buffer]; // スマートメーターからのEchonet Liteメッセージ
+  message: [message: EchonetData]; // スマートメーターからのEchonet Liteメッセージ
   error: [err: Error]; // エラーイベント
 };
 
@@ -77,11 +78,9 @@ export class BP35Connector extends Emitter<Events> implements WiSunConnector {
 
   private setupSerialEventHandlers() {
     // シリアルポートからのデータ受信
-    this.parser.on("data", (data: Buffer) => {
-      const textData = data.toString("utf8");
-      const firstSpaceIndex = textData.indexOf(" ");
-      const command =
-        firstSpaceIndex === -1 ? textData : textData.slice(0, firstSpaceIndex);
+    this.parser.on("data", (dataBuffer: Buffer) => {
+      const textData = dataBuffer.toString("utf8");
+      const command = textData.split(" ", 1)[0];
 
       if (command !== "ERXUDP") {
         // ERXUDP 以外は全体を文字列として扱う
@@ -103,24 +102,32 @@ export class BP35Connector extends Emitter<Events> implements WiSunConnector {
       // バイナリデータを切り出し
       const binaryDataStartIndex = commandMatcher[0].length;
       const binaryDataLength = parseInt(commandMatcher.groups.datalen, 16);
-      const message = data.subarray(
+      const messageBuffer = dataBuffer.subarray(
         binaryDataStartIndex,
         binaryDataStartIndex + binaryDataLength,
       );
       logger.debug(
-        `Parsed ERXUDP message: ${commandMatcher[0]}<HEX:${message.toString("hex")}>`,
+        `Parsed ERXUDP message: ${commandMatcher[0]}<HEX:${messageBuffer.toString("hex")}>`,
       );
 
-      // ポートとヘッダを確認
-      if (
-        commandMatcher.groups.rport !== HEX_ECHONET_PORT ||
-        message.readUInt16BE(0) !== 0x1081
-      ) {
-        logger.info("Received data does not match ECHONET Lite format.");
+      // 送信元ポートを確認
+      const srcport = Buffer.from(
+        commandMatcher.groups.rport,
+        "hex",
+      ).readUInt16BE(0);
+      if (srcport !== ECHONET_PORT) {
+        logger.info(
+          `Received data does not match ECHONET Lite format. port:${srcport}`,
+        );
         return;
       }
 
-      this.emit("message", message);
+      try {
+        const echonetData = EchonetData.parse(messageBuffer);
+        this.emit("message", echonetData);
+      } catch (err) {
+        logger.error("Failed to parse message.", err);
+      }
     });
 
     // シリアルポートのエラーハンドリング
@@ -190,22 +197,25 @@ export class BP35Connector extends Emitter<Events> implements WiSunConnector {
   }
 
   /** @inheritdoc */
-  async sendEchonetLite(data: Buffer): Promise<void> {
+  async sendEchonetLite(echonetData: EchonetData): Promise<void> {
     if (!this.ipv6Address) {
       throw new Error("Not connected to the device.");
     }
 
-    logger.debug(`Request message: ${data.toString("hex")}`);
-    const hexDataLength = data.length
+    const dataBuffer = echonetData.toBuffer();
+
+    logger.debug(`Request message: ${dataBuffer.toString("hex")}`);
+    const hexDataLength = dataBuffer.length
       .toString(16)
       .toUpperCase()
       .padStart(4, "0");
+    const hexPort = ECHONET_PORT.toString(16).toUpperCase().padStart(4, "0");
     const commandBuffer = Buffer.from(
-      `SKSENDTO 1 ${this.ipv6Address} ${HEX_ECHONET_PORT} 1${this.extendArg} ${hexDataLength} `,
+      `SKSENDTO 1 ${this.ipv6Address} ${hexPort} 1${this.extendArg} ${hexDataLength} `,
       "utf8",
     );
 
-    await this.sendCommand(Buffer.concat([commandBuffer, data]));
+    await this.sendCommand(Buffer.concat([commandBuffer, dataBuffer]));
   }
 
   /** @inheritdoc */
