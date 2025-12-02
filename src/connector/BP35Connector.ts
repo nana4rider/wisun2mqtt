@@ -135,18 +135,17 @@ export class BP35Connector extends Emitter<Events> implements WiSunConnector {
   /**
    * シリアルコマンドを送信し、応答を取得します。
    *
-   * @param command 送信するコマンド undefinedは無視し、末尾にCRLFを付与します。
+   * @param command 送信するコマンド スペースで結合し、末尾にCRLFを付与します。
    * @param expected 期待する応答テスト関数
    * @param timeout コマンドのタイムアウト時間（ミリ秒）
    * @returns コマンドの応答を配列で返します。
    */
   private sendTextCommand(
-    command: (string | undefined)[] = [],
+    command: string[] = [],
     expected?: (data: string) => boolean,
     timeout?: number,
   ): Promise<string[]> {
-    const commandString =
-      command.filter((s) => s !== undefined).join(" ") + CRLF;
+    const commandString = command.join(" ") + CRLF;
     return this.sendCommand(
       Buffer.from(commandString, "ascii"),
       expected,
@@ -231,10 +230,8 @@ export class BP35Connector extends Emitter<Events> implements WiSunConnector {
       "1",
       ...this.side,
       hexDataLength,
-      "",
     ];
-    const commandString = command.filter((s) => s !== undefined).join(" ");
-    const commandBuffer = Buffer.from(commandString, "ascii");
+    const commandBuffer = Buffer.from(command.join(" ") + " ", "ascii");
 
     await this.sendCommand(Buffer.concat([commandBuffer, dataBuffer]));
   }
