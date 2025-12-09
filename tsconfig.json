@@ -2,17 +2,18 @@
   "compilerOptions": {
     "target": "es2023",
     "module": "esnext",
-    "baseUrl": ".",
     "outDir": "./dist",
     "strict": true,
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "esModuleInterop": true,
     "skipLibCheck": true,
     "noEmit": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
     "paths": {
-      "@/*": ["src/*"]
+      "package.json": ["./package.json"],
+      "@/*": ["./src/*"],
+      "@serialport/*": ["./node_modules/@serialport/*/dist/index.d.ts"]
     },
     "types": ["vitest/globals"]
   }

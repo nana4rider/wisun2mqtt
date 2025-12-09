@@ -5,7 +5,8 @@ import {
 } from "@/connector/WiSunConnector";
 import { EchonetData } from "@/echonet/EchonetData";
 import logger from "@/logger";
-import { autoDetect, type BindingInterface } from "@serialport/bindings-cpp";
+import { autoDetect } from "@serialport/bindings-cpp";
+import type { BindingInterface } from "@serialport/bindings-interface";
 import type { ReadlineParser } from "@serialport/parser-readline";
 import { SerialPortStream } from "@serialport/stream";
 import assert from "assert";
