@@ -4,7 +4,7 @@
     "module": "esnext",
     "outDir": "./dist",
     "strict": true,
-    "moduleResolution": "bundler",
+    "moduleResolution": "node",
     "esModuleInterop": true,
     "skipLibCheck": true,
     "noEmit": true,
@@ -12,8 +12,7 @@
     "isolatedModules": true,
     "paths": {
       "package.json": ["./package.json"],
-      "@/*": ["./src/*"],
-      "@serialport/*": ["./node_modules/@serialport/*/dist/index.d.ts"]
+      "@/*": ["./src/*"]
     },
     "types": ["vitest/globals"]
   }
