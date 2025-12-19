@@ -1,0 +1,12 @@
+diff --git a/node_modules/@serialport/bindings-interface/package.json b/node_modules/@serialport/bindings-interface/package.json
+index eb109ab..918d0a0 100644
+--- a/node_modules/@serialport/bindings-interface/package.json
++++ b/node_modules/@serialport/bindings-interface/package.json
+@@ -5,6 +5,7 @@
+   "types": "dist/index.d.ts",
+   "main": "./dist/index.js",
+   "exports": {
++    "types": "./dist/index.d.ts",
+     "require": "./dist/index.js",
+     "default": "./dist/index-esm.mjs"
+   },

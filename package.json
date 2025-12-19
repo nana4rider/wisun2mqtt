@@ -14,7 +14,8 @@
     "lint": "eslint --max-warnings 0 && prettier . --check",
     "lint:fix": "eslint --fix && prettier . --write",
     "test": "vitest run",
-    "prepare": "husky"
+    "prepare": "husky",
+    "postinstall": "patch-package"
   },
   "lint-staged": {
     "*.ts": [
@@ -45,6 +46,7 @@
     "globals": "^16.5.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
+    "patch-package": "^8.0.1",
     "prettier": "^3.7.3",
     "tsx": "^4.21.0",
     "type-fest": "^5.3.0",

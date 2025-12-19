@@ -1,0 +1,12 @@
+diff --git a/node_modules/@serialport/binding-mock/package.json b/node_modules/@serialport/binding-mock/package.json
+index 6051182..d85511d 100644
+--- a/node_modules/@serialport/binding-mock/package.json
++++ b/node_modules/@serialport/binding-mock/package.json
+@@ -5,6 +5,7 @@
+   "types": "./dist/index.d.ts",
+   "main": "./dist/index.js",
+   "exports": {
++    "types": "./dist/index.d.ts",
+     "require": "./dist/index.js",
+     "default": "./dist/index-esm.mjs"
+   },
