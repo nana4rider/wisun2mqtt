@@ -451,7 +451,7 @@ describe("setupSerialEventHandlers", () => {
       data.startsWith("ERXUDP"),
     );
 
-    expect(logErrorSpy).toHaveBeenCalledExactlyOnceWith(
+    expect(logErrorSpy).toHaveBeenCalledWith(
       "Failed to parse message.",
       expect.any(Error),
     );

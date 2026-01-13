@@ -123,6 +123,9 @@ export class BP35Connector extends Emitter<Events> implements WiSunConnector {
         this.emit("message", echonetData);
       } catch (err) {
         logger.error("Failed to parse message.", err);
+        logger.error(
+          `Parsed ERXUDP message: ${commandMatcher[0]}<HEX:${messageBuffer.toString("hex")}>`,
+        );
       }
     });
 
