@@ -1,6 +1,6 @@
 {
   "name": "wisun2mqtt",
-  "version": "2.3.4",
+  "version": "2.3.5",
   "author": "nana4rider",
   "license": "ISC",
   "main": "dist/index.js",
@@ -28,7 +28,7 @@
     "envalid": "^8.1.1",
     "file-exists": "^5.0.1",
     "mqtt": "^5.14.1",
-    "p-event": "^7.0.1",
+    "p-event": "^7.0.2",
     "serialport": "^13.0.0",
     "strict-event-emitter": "^0.5.1",
     "winston": "^3.19.0"
@@ -38,21 +38,21 @@
     "@eslint/js": "^9.39.2",
     "@serialport/binding-mock": "^10.2.2",
     "@types/file-exists": "^5.0.3",
-    "@types/node": "^24.10.4",
-    "@vitest/coverage-v8": "^4.0.16",
-    "@vitest/eslint-plugin": "^1.5.4",
+    "@types/node": "^24.10.7",
+    "@vitest/coverage-v8": "^4.0.17",
+    "@vitest/eslint-plugin": "^1.6.6",
     "esbuild": "^0.27.2",
     "eslint": "^9.39.2",
-    "globals": "^16.5.0",
+    "globals": "^17.0.0",
     "husky": "^9.1.7",
     "lint-staged": "^16.2.7",
     "patch-package": "^8.0.1",
     "prettier": "^3.7.4",
     "tsx": "^4.21.0",
-    "type-fest": "^5.3.1",
+    "type-fest": "^5.4.0",
     "typescript": "^5.9.3",
-    "typescript-eslint": "^8.50.0",
-    "vite-tsconfig-paths": "^6.0.3",
-    "vitest": "^4.0.16"
+    "typescript-eslint": "^8.53.0",
+    "vite-tsconfig-paths": "^6.0.4",
+    "vitest": "^4.0.17"
   }
 }
