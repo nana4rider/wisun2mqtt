@@ -122,7 +122,7 @@ export class BP35Connector extends Emitter<Events> implements WiSunConnector {
         const echonetData = EchonetData.parse(messageBuffer);
         this.emit("message", echonetData);
       } catch (err) {
-        logger.error("Failed to parse message.", err);
+        logger.error(`Failed to parse message. data:${textData}`, err);
       }
     });
 

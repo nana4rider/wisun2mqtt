@@ -435,15 +435,14 @@ describe("setupSerialEventHandlers", () => {
   test("ヘッダが0x1081以外のメッセージを受け取った場合ログを出力", async () => {
     const logErrorSpy = vi.spyOn(logger, "error");
 
+    const textData =
+      "ERXUDP FE80:0000:0000:0000:0000:0000:0000:0000 FE80:0000:0000:0000:0000:0000:0000:0000 0E1A 0E1A 0000111122223333 0 0 0002   ";
     const connector = createConnector();
     const { serialPort: mockPort, parser: mockParser } = connector;
     mockParser.on("data", (data: Buffer) => {
       const command = data.toString("ascii");
       if (command.match(/^SKSENDTO/)) {
-        emitText(
-          mockPort,
-          "ERXUDP FE80:0000:0000:0000:0000:0000:0000:0000 FE80:0000:0000:0000:0000:0000:0000:0000 0E1A 0E1A 0000111122223333 0 0 0002   ",
-        );
+        emitText(mockPort, textData);
       }
     });
 
@@ -452,7 +451,7 @@ describe("setupSerialEventHandlers", () => {
     );
 
     expect(logErrorSpy).toHaveBeenCalledExactlyOnceWith(
-      "Failed to parse message.",
+      `Failed to parse message. data:${textData}`,
       expect.any(Error),
     );
   });
