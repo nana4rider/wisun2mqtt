@@ -512,6 +512,47 @@ describe("setupSerialEventHandlers", () => {
     expect(messageSpy).toHaveBeenNthCalledWith(2, mockEchonetData);
   });
 
+  test("ECHONET Liteメッセージに0x0D0Aが含まれていても正しく解析される", async () => {
+    const mockMessage = Buffer.from(
+      "108106e102880105ff017206800130880142e70400000698e80400a00d0ae0040004f3fde3040000000b",
+      "hex",
+    );
+
+    const connector = createConnector();
+    const { serialPort: mockPort, parser: mockParser } = connector;
+
+    mockParser.on("data", (data: Buffer) => {
+      const command = data.toString("ascii");
+      if (command.match(/^SKSENDTO/)) {
+        emitBuffer(
+          mockPort,
+          Buffer.concat([
+            Buffer.from(
+              "ERXUDP FE80:0000:0000:0000:0000:0000:0000:0000 FE80:0000:0000:0000:0000:0000:0000:0000 0E1A 0E1A 0000111122223333 0 0 002A ",
+              "ascii",
+            ),
+            mockMessage,
+            Buffer.from("\r\n", "ascii"),
+          ]),
+        );
+        emitText(mockPort, "TESTEND");
+      }
+    });
+
+    const messageSpy = vi.fn();
+    connector.on("message", messageSpy);
+
+    const sendPromise = connector.sendTextCommand(
+      ["SKSENDTO", "xxxx"],
+      (data) => data.startsWith("TESTEND"),
+    );
+    setImmediate(() => emitText(mockPort, ""));
+    await sendPromise;
+
+    const mockEchonetData = EchonetData.parse(mockMessage);
+    expect(messageSpy).toHaveBeenCalledWith(mockEchonetData);
+  });
+
   test("シリアル通信でエラーが発生したときエラーログに出力する", () => {
     const logErrorSpy = vi.spyOn(logger, "error");
 

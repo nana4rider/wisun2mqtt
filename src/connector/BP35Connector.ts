@@ -69,8 +69,16 @@ export class BP35Connector extends Emitter<Events> implements WiSunConnector {
   }
 
   private setupSerialEventHandlers() {
-    // シリアルポートからのデータ受信
+    let erxudpRemainder: Buffer | undefined = undefined;
+
     this.parser.on("data", (dataBuffer: Buffer) => {
+      // 前回未完成分があれば結合
+      if (erxudpRemainder) {
+        const crlfBuffer = Buffer.from(CRLF, "ascii");
+        dataBuffer = Buffer.concat([erxudpRemainder, crlfBuffer, dataBuffer]);
+        erxudpRemainder = undefined;
+      }
+
       const textData = dataBuffer.toString("ascii");
       const command = textData.split(" ", 1)[0];
 
@@ -83,20 +91,30 @@ export class BP35Connector extends Emitter<Events> implements WiSunConnector {
       const commandMatcher = textData.match(
         /^ERXUDP (?<sender>.{39}) (?<dest>.{39}) (?<rport>.{4}) (?<lport>.{4}) (?<senderlla>.{16}) (?<secured>.) ((?<side>.) )?(?<datalen>[0-9A-F]{4}) /,
       );
-      if (!commandMatcher) {
+      if (!commandMatcher?.groups) {
         logger.error(
           `Invalid ERXUDP message format received from SerialPort: ${textData}`,
         );
         return;
       }
-      assert(commandMatcher.groups);
 
       // バイナリデータを切り出し
       const binaryDataStartIndex = commandMatcher[0].length;
       const binaryDataLength = parseInt(commandMatcher.groups.datalen, 16);
+
+      const expectedEnd = binaryDataStartIndex + binaryDataLength;
+      if (dataBuffer.length < expectedEnd) {
+        // 未完成なので次回へ持ち越す
+        erxudpRemainder = dataBuffer;
+        logger.debug(
+          `ERXUDP incomplete. waiting for more data. expected=${binaryDataLength}, actual=${dataBuffer.length - binaryDataStartIndex}`,
+        );
+        return;
+      }
+
       const messageBuffer = dataBuffer.subarray(
         binaryDataStartIndex,
-        binaryDataStartIndex + binaryDataLength,
+        expectedEnd,
       );
 
       /* v8 ignore if -- @preserve */
