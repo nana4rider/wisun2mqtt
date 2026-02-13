@@ -9,7 +9,6 @@ import { autoDetect } from "@serialport/bindings-cpp";
 import type { BindingInterface } from "@serialport/bindings-interface";
 import type { ReadlineParser } from "@serialport/parser-readline";
 import { SerialPortStream } from "@serialport/stream";
-import assert from "assert";
 import { pEvent } from "p-event";
 import { DelimiterParser } from "serialport";
 import { Emitter } from "strict-event-emitter";
@@ -314,8 +313,7 @@ export class BP35Connector extends Emitter<Events> implements WiSunConnector {
       const paninfoMatcher = res.match(
         /^ {2}(?<key>[a-zA-Z ]+):(?<value>[A-Z0-9]+)/,
       );
-      if (!paninfoMatcher) continue;
-      assert(paninfoMatcher.groups);
+      if (!paninfoMatcher?.groups) continue;
       // "Pan ID" とキー名にスペースが含まれるが、扱いやすくするため削除する
       const key = paninfoMatcher.groups.key.replaceAll(" ", "");
       panInfo[key] = paninfoMatcher.groups.value;
