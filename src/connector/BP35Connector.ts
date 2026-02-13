@@ -9,7 +9,6 @@ import { autoDetect } from "@serialport/bindings-cpp";
 import type { BindingInterface } from "@serialport/bindings-interface";
 import type { ReadlineParser } from "@serialport/parser-readline";
 import { SerialPortStream } from "@serialport/stream";
-import assert from "assert";
 import { pEvent } from "p-event";
 import { DelimiterParser } from "serialport";
 import { Emitter } from "strict-event-emitter";
@@ -29,6 +28,8 @@ const JOIN_TIMEOUT = 38000 + DEFAULT_COMMAND_TIMEOUT;
 const ECHONET_PORT = 3610;
 /** CRLF */
 const CRLF = "\r\n";
+/** CRLF Buffer */
+const CRLF_BUFFER = Buffer.from(CRLF, "ascii");
 
 type Events = {
   message: [message: EchonetData]; // スマートメーターからのEchonet Liteメッセージ
@@ -63,14 +64,21 @@ export class BP35Connector extends Emitter<Events> implements WiSunConnector {
       baudRate: BAUDRATE,
     });
     this.parser = this.serialPort.pipe(
-      new DelimiterParser({ delimiter: Buffer.from(CRLF, "ascii") }),
+      new DelimiterParser({ delimiter: CRLF_BUFFER }),
     );
     this.setupSerialEventHandlers();
   }
 
   private setupSerialEventHandlers() {
-    // シリアルポートからのデータ受信
+    let erxudpRemainder: Buffer | undefined = undefined;
+
     this.parser.on("data", (dataBuffer: Buffer) => {
+      // 前回未完成分があれば結合
+      if (erxudpRemainder) {
+        dataBuffer = Buffer.concat([erxudpRemainder, CRLF_BUFFER, dataBuffer]);
+        erxudpRemainder = undefined;
+      }
+
       const textData = dataBuffer.toString("ascii");
       const command = textData.split(" ", 1)[0];
 
@@ -83,20 +91,30 @@ export class BP35Connector extends Emitter<Events> implements WiSunConnector {
       const commandMatcher = textData.match(
         /^ERXUDP (?<sender>.{39}) (?<dest>.{39}) (?<rport>.{4}) (?<lport>.{4}) (?<senderlla>.{16}) (?<secured>.) ((?<side>.) )?(?<datalen>[0-9A-F]{4}) /,
       );
-      if (!commandMatcher) {
+      if (!commandMatcher?.groups) {
         logger.error(
           `Invalid ERXUDP message format received from SerialPort: ${textData}`,
         );
         return;
       }
-      assert(commandMatcher.groups);
 
       // バイナリデータを切り出し
       const binaryDataStartIndex = commandMatcher[0].length;
       const binaryDataLength = parseInt(commandMatcher.groups.datalen, 16);
+
+      const expectedEnd = binaryDataStartIndex + binaryDataLength;
+      if (dataBuffer.length < expectedEnd) {
+        // 未完成なので次回へ持ち越す
+        erxudpRemainder = dataBuffer;
+        logger.debug(
+          `ERXUDP incomplete. waiting for more data. expected=${binaryDataLength}, actual=${dataBuffer.length - binaryDataStartIndex}`,
+        );
+        return;
+      }
+
       const messageBuffer = dataBuffer.subarray(
         binaryDataStartIndex,
-        binaryDataStartIndex + binaryDataLength,
+        expectedEnd,
       );
 
       /* v8 ignore if -- @preserve */
@@ -149,9 +167,9 @@ export class BP35Connector extends Emitter<Events> implements WiSunConnector {
     expected?: (data: string) => boolean,
     timeout?: number,
   ): Promise<string[]> {
-    const commandString = command.join(" ") + CRLF;
+    const commandString = command.join(" ");
     return this.sendCommand(
-      Buffer.from(commandString, "ascii"),
+      Buffer.concat([Buffer.from(commandString, "ascii"), CRLF_BUFFER]),
       expected,
       timeout,
     );
@@ -295,8 +313,7 @@ export class BP35Connector extends Emitter<Events> implements WiSunConnector {
       const paninfoMatcher = res.match(
         /^ {2}(?<key>[a-zA-Z ]+):(?<value>[A-Z0-9]+)/,
       );
-      if (!paninfoMatcher) continue;
-      assert(paninfoMatcher.groups);
+      if (!paninfoMatcher?.groups) continue;
       // "Pan ID" とキー名にスペースが含まれるが、扱いやすくするため削除する
       const key = paninfoMatcher.groups.key.replaceAll(" ", "");
       panInfo[key] = paninfoMatcher.groups.value;
