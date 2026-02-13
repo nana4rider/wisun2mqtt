@@ -29,6 +29,8 @@ const JOIN_TIMEOUT = 38000 + DEFAULT_COMMAND_TIMEOUT;
 const ECHONET_PORT = 3610;
 /** CRLF */
 const CRLF = "\r\n";
+/** CRLF Buffer */
+const CRLF_BUFFER = Buffer.from(CRLF, "ascii");
 
 type Events = {
   message: [message: EchonetData]; // スマートメーターからのEchonet Liteメッセージ
@@ -63,7 +65,7 @@ export class BP35Connector extends Emitter<Events> implements WiSunConnector {
       baudRate: BAUDRATE,
     });
     this.parser = this.serialPort.pipe(
-      new DelimiterParser({ delimiter: Buffer.from(CRLF, "ascii") }),
+      new DelimiterParser({ delimiter: CRLF_BUFFER }),
     );
     this.setupSerialEventHandlers();
   }
@@ -74,8 +76,7 @@ export class BP35Connector extends Emitter<Events> implements WiSunConnector {
     this.parser.on("data", (dataBuffer: Buffer) => {
       // 前回未完成分があれば結合
       if (erxudpRemainder) {
-        const crlfBuffer = Buffer.from(CRLF, "ascii");
-        dataBuffer = Buffer.concat([erxudpRemainder, crlfBuffer, dataBuffer]);
+        dataBuffer = Buffer.concat([erxudpRemainder, CRLF_BUFFER, dataBuffer]);
         erxudpRemainder = undefined;
       }
 
@@ -167,9 +168,9 @@ export class BP35Connector extends Emitter<Events> implements WiSunConnector {
     expected?: (data: string) => boolean,
     timeout?: number,
   ): Promise<string[]> {
-    const commandString = command.join(" ") + CRLF;
+    const commandString = command.join(" ");
     return this.sendCommand(
-      Buffer.from(commandString, "ascii"),
+      Buffer.concat([Buffer.from(commandString, "ascii"), CRLF_BUFFER]),
       expected,
       timeout,
     );
