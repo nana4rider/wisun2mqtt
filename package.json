@@ -1,6 +1,6 @@
 {
   "name": "wisun2mqtt",
-  "version": "2.4.1",
+  "version": "2.4.2",
   "author": "nana4rider",
   "license": "ISC",
   "main": "dist/index.js",
@@ -25,10 +25,10 @@
     "*.{js,json,md,yml,yaml}": "prettier --check"
   },
   "dependencies": {
-    "envalid": "^8.1.1",
+    "envalid": "^9.0.0",
     "file-exists": "^5.0.1",
-    "mqtt": "^5.15.0",
-    "p-event": "^7.1.0",
+    "mqtt": "^5.16.1",
+    "p-event": "^8.0.1",
     "serialport": "^13.0.0",
     "strict-event-emitter": "^0.5.1",
     "winston": "^3.19.0"
@@ -39,20 +39,20 @@
     "@serialport/binding-mock": "^10.2.2",
     "@types/file-exists": "^5.0.3",
     "@types/node": "^24.10.7",
-    "@vitest/coverage-v8": "^4.0.18",
-    "@vitest/eslint-plugin": "^1.6.9",
-    "esbuild": "^0.27.3",
-    "eslint": "^10.0.1",
-    "globals": "^17.3.0",
+    "@vitest/coverage-v8": "^5.0.5",
+    "@vitest/eslint-plugin": "^1.6.28",
+    "esbuild": "^0.28.2",
+    "eslint": "^10.13.0",
+    "globals": "^17.13.0",
     "husky": "^9.1.7",
-    "lint-staged": "^16.2.7",
+    "lint-staged": "^17.6.0",
     "patch-package": "^8.0.1",
-    "prettier": "^3.8.1",
-    "tsx": "^4.21.0",
-    "type-fest": "^5.4.4",
-    "typescript": "^5.9.3",
-    "typescript-eslint": "^8.56.0",
+    "prettier": "^3.9.10",
+    "tsx": "^4.23.15",
+    "type-fest": "^5.10.0",
+    "typescript": "^6.0.3",
+    "typescript-eslint": "^8.72.0",
     "vite-tsconfig-paths": "^6.1.1",
-    "vitest": "^4.0.18"
+    "vitest": "^5.0.5"
   }
 }
