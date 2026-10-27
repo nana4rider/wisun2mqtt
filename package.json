@@ -14,15 +14,8 @@
     "lint": "eslint --max-warnings 0 && prettier . --check",
     "lint:fix": "eslint --fix && prettier . --write",
     "test": "vitest run",
-    "prepare": "husky",
+    "prepare": "lefthook install",
     "postinstall": "patch-package"
-  },
-  "lint-staged": {
-    "*.ts": [
-      "eslint --max-warnings 0",
-      "prettier --check"
-    ],
-    "*.{js,json,md,yml,yaml}": "prettier --check"
   },
   "dependencies": {
     "envalid": "^9.0.0",
@@ -44,8 +37,7 @@
     "esbuild": "^0.28.2",
     "eslint": "^10.13.0",
     "globals": "^17.13.0",
-    "husky": "^9.1.7",
-    "lint-staged": "^17.6.0",
+    "lefthook": "^2.0.0",
     "patch-package": "^8.0.1",
     "prettier": "^3.9.10",
     "tsx": "^4.23.15",
