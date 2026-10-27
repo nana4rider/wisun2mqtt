@@ -1,6 +1,6 @@
 {
   "name": "wisun2mqtt",
-  "version": "2.4.2",
+  "version": "2.5.0",
   "author": "nana4rider",
   "license": "ISC",
   "main": "dist/index.js",
@@ -19,7 +19,7 @@
   },
   "dependencies": {
     "envalid": "^9.0.0",
-    "file-exists": "^5.0.1",
+    "file-exists-safe": "^3.0.0",
     "mqtt": "^5.16.1",
     "p-event": "^8.0.1",
     "serialport": "^13.0.0",
@@ -30,7 +30,6 @@
     "@esbuild-plugins/tsconfig-paths": "^0.1.2",
     "@eslint/js": "^10.0.1",
     "@serialport/binding-mock": "^10.2.2",
-    "@types/file-exists": "^5.0.3",
     "@types/node": "^24.10.7",
     "@vitest/coverage-v8": "^5.0.5",
     "@vitest/eslint-plugin": "^1.6.28",
@@ -44,7 +43,6 @@
     "type-fest": "^5.10.0",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.72.0",
-    "vite-tsconfig-paths": "^6.1.1",
     "vitest": "^5.0.5"
   }
 }

@@ -7,7 +7,7 @@ import env from "@/env";
 import logger from "@/logger";
 import { getDecimalPlaces } from "@/util/dataTransformUtil";
 import assert from "assert";
-import fileExists from "file-exists";
+import { fileExists } from "file-exists-safe";
 import { readFile, writeFile } from "fs/promises";
 import { pEvent } from "p-event";
 

@@ -6,7 +6,10 @@ import initializeSmartMeterClient, {
   initializeWiSunConnector,
 } from "@/service/smartMeter";
 import assert from "assert";
-import fileExists from "file-exists";
+import {
+  fileExists,
+  type Options as FileExistsOptions,
+} from "file-exists-safe";
 import { readFile, writeFile } from "fs/promises";
 import type { CancelablePromise } from "p-event";
 import { pEvent } from "p-event";
@@ -32,8 +35,8 @@ vi.mock("@/connector/WiSunConnector", async () => {
   };
 });
 
-vi.mock("file-exists", () => ({
-  default: vi.fn(),
+vi.mock("file-exists-safe", () => ({
+  fileExists: vi.fn(),
 }));
 
 vi.mock("node:fs/promises");
@@ -58,9 +61,12 @@ beforeEach(() => {
 });
 
 function implementFileExists(exists: boolean) {
-  vi.mocked<(filepath: string) => Promise<boolean>>(
-    fileExists,
-  ).mockResolvedValue(exists);
+  vi.mocked<
+    (
+      filepath: string,
+      options?: FileExistsOptions,
+    ) => Promise<boolean | undefined>
+  >(fileExists).mockResolvedValue(exists);
 }
 
 describe("initializeWiSunConnector", () => {
