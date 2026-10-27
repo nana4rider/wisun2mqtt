@@ -14,7 +14,7 @@
     "lint": "eslint --max-warnings 0 && prettier . --check",
     "lint:fix": "eslint --fix && prettier . --write",
     "test": "vitest run",
-    "prepare": "lefthook install",
+    "prepare": "lefthook install || true",
     "postinstall": "patch-package"
   },
   "dependencies": {
