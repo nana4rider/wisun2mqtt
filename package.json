@@ -1,6 +1,6 @@
 {
   "name": "wisun2mqtt",
-  "version": "2.5.1",
+  "version": "2.5.2",
   "author": "nana4rider",
   "license": "ISC",
   "main": "dist/index.js",
@@ -30,7 +30,7 @@
     "@esbuild-plugins/tsconfig-paths": "^0.1.2",
     "@eslint/js": "^10.0.1",
     "@serialport/binding-mock": "^10.2.2",
-    "@types/node": "^24.10.7",
+    "@types/node": "^26.0.0",
     "@vitest/coverage-v8": "^5.0.5",
     "@vitest/eslint-plugin": "^1.6.28",
     "esbuild": "^0.28.2",
@@ -44,5 +44,11 @@
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.72.0",
     "vitest": "^5.0.5"
+  },
+  "allowScripts": {
+    "@serialport/bindings-cpp": true,
+    "esbuild": true,
+    "lefthook": true,
+    "patch-package": true
   }
 }
